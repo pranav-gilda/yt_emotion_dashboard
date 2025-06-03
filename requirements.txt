@@ -1,0 +1,15 @@
+python-dotenv
+pandas
+youtube-transcript-api
+google-api-python-client
+pytube
+flask
+fastapi
+uvicorn
+pydantic
+nltk
+transformers
+torch
+boto3
+torch
+xlsxwriter

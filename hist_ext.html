@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube History Saver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            width: 400px;
+            padding: 15px;
+        }
+        h2 {
+            text-align: center;
+        }
+        input, button {
+            margin: 5px 0;
+            width: 100%;
+            padding: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .export-btn {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>YouTube History</h2>
+    <label>From: <input type="date" id="fromDate"></label>
+    <label>To: <input type="date" id="toDate"></label>
+    <button onclick="fetchHistory()">Filter History</button>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Title</th>
+                <th>URL</th>
+            </tr>
+        </thead>
+        <tbody id="historyTable"></tbody>
+    </table>
+    <button class="export-btn" onclick="exportCSV()">Export as CSV</button>
+    <script>
+        async function fetchHistory() {
+            let from = document.getElementById("fromDate").value;
+            let to = document.getElementById("toDate").value;
+            let response = await fetch(`http://127.0.0.1:8000/history?from_date=${from}&to_date=${to}`);
+            let data = await response.json();
+            let table = document.getElementById("historyTable");
+            table.innerHTML = "";
+            data.forEach(entry => {
+                let row = `<tr><td>${entry.date}</td><td>${entry.title}</td><td><a href="${entry.url}" target="_blank">Link</a></td></tr>`;
+                table.innerHTML += row;
+            });
+        }
+        async function exportCSV() {
+            window.location.href = "http://127.0.0.1:8000/export";
+        }
+    </script>
+</body>
+</html>

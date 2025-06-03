@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env
+*.sqlite3
+
+# Virtual environments
+venv/
+testenv/
+results/
+experiments/
+transcripts/*
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# System files
+.DS_Store
+Thumbs.db
+
+# S3/Secrets
+*.pem
+*.key
+*.crt
+
+# Node/Chrome extension build artifacts (if any)
+node_modules/
+dist/
+build/
