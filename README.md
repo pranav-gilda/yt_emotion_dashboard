@@ -38,11 +38,6 @@ python main.py
 
 ---
 
-## What to Exclude from Your Repo
-- `results/`, `testenv/`, `venv/`, `experiments/`, `.env`
-
----
-
 ## Credits
 - Built with [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api), [transformers](https://huggingface.co/), and [FastAPI](https://fastapi.tiangolo.com/).
 
