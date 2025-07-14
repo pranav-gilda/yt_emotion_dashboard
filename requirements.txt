@@ -9,9 +9,8 @@ uvicorn
 pydantic
 nltk
 transformers
-torch
+--index-url [https://download.pytorch.org/whl/cpu]
 boto3
-torch
 xlsxwriter
 openpyxl
 yt-dlp
