@@ -13,3 +13,5 @@ torch
 boto3
 torch
 xlsxwriter
+openpyxl
+yt-dlp
