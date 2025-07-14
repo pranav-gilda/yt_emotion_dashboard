@@ -261,7 +261,7 @@ async function analyzeCurrentVideo(retries = 3, delay = 1200) {
     // Notify background for badge/history
     safeSendMessage({ url });
 
-    const response = await fetch('http://localhost:8080/process_video', {
+    const response = await fetch('http://18.222.120.158:8080/process_video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url })
@@ -363,6 +363,6 @@ function checkAndAnalyze() {
     analyzeCurrentVideo();
   }
 }
-window.addEventListener("locationchange", checkAndAnalyze);
-setInterval(checkAndAnalyze, 1000);
-checkAndAnalyze(); // Initial run
+// window.addEventListener("locationchange", checkAndAnalyze);
+// setInterval(checkAndAnalyze, 1000);
+// checkAndAnalyze(); // Initial run

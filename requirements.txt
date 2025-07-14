@@ -9,9 +9,12 @@ uvicorn
 pydantic
 nltk
 transformers
-torch
 boto3
-torch
 xlsxwriter
 openpyxl
 yt-dlp
+gunicorn
+
+# Corrected torch installation:
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch

@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const SCALE_MIN = -0.2;
     const SCALE_MAX = 0.2;
 
+    // --- State Variables ---
     let lastAnalysisData = null;
     let originalTranscript = '';
     let thumbRating = null;
@@ -61,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Core Logic ---
     async function handleAnalysis() {
-        const transcript = transcriptInput.value.trim();
+        const transcript = transcriptInput.value.trim().replace(/\n/g, ' ');
         if (!transcript) {
             showError('Please paste a transcript first.');
             return;
@@ -73,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideError();
 
         try {
-            const url = `http://localhost:8080/run_models`;
+            const url = `http://18.222.120.158:8080/run_models`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -122,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitFeedbackBtn.textContent = 'Submitting...';
 
         try {
-            const response = await fetch('http://localhost:8080/feedback', {
+            const response = await fetch('http://18.222.120.158:8080/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -160,7 +161,6 @@ document.addEventListener('DOMContentLoaded', function() {
         emotionSelect.innerHTML = '<option value="">-- Select an emotion --</option>';
         
         let allEmotions = [];
-        // Use the dominant emotion from the model as the first choice
         if (data.dominant_emotion) {
             allEmotions.push(data.dominant_emotion.charAt(0).toUpperCase() + data.dominant_emotion.slice(1));
         }
@@ -169,7 +169,6 @@ document.addEventListener('DOMContentLoaded', function() {
             allEmotions.push(...data.emotions[category].map(e => e.label));
         }
         
-        // Get unique, sorted list
         const uniqueEmotions = [...new Set(allEmotions)];
         uniqueEmotions.sort().forEach(emotion => {
             const option = document.createElement('option');
@@ -197,23 +196,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderDetails(data) {
         const colors = { Respect: '#4caf50', Contempt: '#ff4d4f', Positive: '#2196f3', Negative: '#9c27b0', Neutral: '#ffd700' };
         
-        // --- START OF FIX ---
-        // Build the HTML in a cleaner, more structured way.
         let detailsHTML = `<h2>Detailed Analysis</h2>`;
-        
-        // Display Dominant (Non-Neutral) Emotion
-        detailsHTML += `
-            <div class="emotion-item">
-                <span>Dominant Emotion</span>
-                <span style="font-weight:bold;">${data.dominant_emotion.charAt(0).toUpperCase() + data.dominant_emotion.slice(1)}</span>
-            </div>
-            <div class="emotion-item">
-                <span>Neutral Score</span>
-                <span style="font-weight:bold;">${data.neutral_score.toFixed(3)}</span>
-            </div>
-        `;
 
-        // Helper to render a category section
         function renderCategory(title, emotions) {
             if (!emotions || emotions.length === 0) return '';
             let categoryHTML = `<div class="modal-cat-header" style="color:${colors[title]}">${title}</div><div class="emotions-list">`;
@@ -227,11 +211,9 @@ document.addEventListener('DOMContentLoaded', function() {
         detailsHTML += renderCategory('Contempt', data.emotions.contempt);
         detailsHTML += renderCategory('Positive', data.emotions.positive);
         detailsHTML += renderCategory('Negative', data.emotions.negative);
-        // Render the neutral breakdown last
         detailsHTML += renderCategory('Neutral', data.emotions.neutral_breakdown);
         
         detailsHTML += `<div class="button-group" style="margin-top: 15px;"><button id="detailsBackBtn">Back to Results</button></div>`;
-        // --- END OF FIX ---
         
         detailsView.innerHTML = detailsHTML;
         document.getElementById('detailsBackBtn').addEventListener('click', showResultsView);

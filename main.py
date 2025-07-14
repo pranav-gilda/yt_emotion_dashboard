@@ -11,7 +11,12 @@ import io
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
-import openpyxl
+
+# Add openpyxl to your requirements.txt. It's needed for pandas to read .xlsx files.
+try:
+    import openpyxl
+except ImportError:
+    logging.warning("openpyxl not found. Please run 'pip install openpyxl' to enable Excel feedback logging.")
 
 load_dotenv()
 
@@ -41,7 +46,6 @@ async def receive_feedback(payload: FeedbackPayload):
     Receives feedback from the extension and appends it as a new row in an Excel file.
     """
     try:
-        # Flatten the data into a single dictionary for the new row
         new_feedback_row = {
             "timestamp": datetime.now().isoformat(),
             "user_rating": payload.user_feedback.get('rating'),
@@ -54,17 +58,20 @@ async def receive_feedback(payload: FeedbackPayload):
             "original_transcript": payload.original_transcript
         }
         
-        # Check if the feedback file exists to either load it or create a new one
         if os.path.exists(FEEDBACK_FILE_PATH):
-            df = pd.read_excel(FEEDBACK_FILE_PATH)
-            # Use pd.concat to append the new row
+            # --- START OF FIX ---
+            # Explicitly use the 'openpyxl' engine for reading.
+            df = pd.read_excel(FEEDBACK_FILE_PATH, engine='openpyxl')
+            # --- END OF FIX ---
             new_row_df = pd.DataFrame([new_feedback_row])
             df = pd.concat([df, new_row_df], ignore_index=True)
         else:
             df = pd.DataFrame([new_feedback_row])
             
-        # Save the updated DataFrame back to the Excel file
-        df.to_excel(FEEDBACK_FILE_PATH, index=False)
+        # --- START OF FIX ---
+        # Explicitly use the 'xlsxwriter' engine for writing, which is already in your requirements.
+        df.to_excel(FEEDBACK_FILE_PATH, index=False, engine='xlsxwriter')
+        # --- END OF FIX ---
         
         logging.info(f"Feedback successfully saved to {FEEDBACK_FILE_PATH}")
         
@@ -87,17 +94,13 @@ def run_models(request: TranscriptRequest):
         result = models.run_go_emotions(request.transcript, request.model_name)
         average_scores = result.get("average_scores", {})
 
-        # Separate the neutral score from the other aggregate calculations
         neutral_score = average_scores.get('neutral', 0)
 
         respect_emotions = ['approval', 'caring', 'admiration']
         contempt_emotions = ['disapproval', 'disgust', 'annoyance']
         positive_emotions = ['amusement', 'excitement', 'joy', 'love', 'optimism', 'pride', 'relief', 'gratitude']
         negative_emotions = ['anger', 'disappointment', 'embarrassment', 'fear', 'grief', 'nervousness', 'remorse', 'sadness']
-        
-        # Note: The 'neutral_emotions' list is now only used for the detailed breakdown
         neutral_emotions_list = ['confusion', 'curiosity', 'desire', 'realization', 'surprise']
-
 
         def agg(emolist):
             vals = [average_scores.get(e, 0) for e in emolist]
@@ -118,7 +121,7 @@ def run_models(request: TranscriptRequest):
             'contempt': emotion_scores(contempt_emotions),
             'positive': emotion_scores(positive_emotions),
             'negative': emotion_scores(negative_emotions),
-            'neutral_breakdown': emotion_scores(neutral_emotions_list), # For details view
+            'neutral_breakdown': emotion_scores(neutral_emotions_list),
         }
 
         return {
@@ -127,7 +130,7 @@ def run_models(request: TranscriptRequest):
             'dominant_attitude_emotion': result.get('dominant_attitude_emotion'),
             'dominant_attitude_score': result.get('dominant_attitude_score'),
             'aggregate_scores': agg_scores,
-            'neutral_score': neutral_score, # Add the separate neutral score
+            'neutral_score': neutral_score,
             'emotions': grouped
         }
 

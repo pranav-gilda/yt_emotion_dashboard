@@ -12,7 +12,7 @@
         "service_worker": "background.js"
     },
     "host_permissions": [
-        "http://localhost:8080/*",
+        "http://18.222.120.158:8080/*",
         "https://www.youtube.com/*"
     ],
     "content_scripts": [
