@@ -3,6 +3,7 @@ import re
 import logging
 from pytube import YouTube
 import config
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -49,7 +50,12 @@ def getUrlDetails(url, youtube):
 
 def get_video_details(url):
     #do we have an API key to use? - if not follow the documentation in git repo to get it
-    youtube = build('youtube', 'v3', developerKey='AIzaSyBiv6q-m36NUA5LG5DxaLRKVkmdyiPU01M')
+    youtube_api_key = os.getenv('youtube_api_key')
+    if not youtube_api_key:
+        logging.error("youtube_api_key not found in environment variables.")
+        # Handle the error appropriately, e.g., return default/error values
+        return 0, "Error: API Key Missing"
+    youtube = build('youtube', 'v3', developerKey=youtube_api_key)
 
     seconds_watched, category_watched = getUrlDetails(url,youtube)
 
