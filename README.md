@@ -36,17 +36,5 @@ python main.py
 - **Neutral**: Confusion, Curiosity, Desire, Realization, Surprise, Neutral
 - **Negative**: Anger, Disappointment, Embarrassment, Fear, Grief, Nervousness, Remorse, Sadness
 
----
-
-## What to Exclude from Your Repo
-- `results/`, `testenv/`, `venv/`, `experiments/`, `.env`
-
----
-
-## Credits
-- Built with [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api), [transformers](https://huggingface.co/), and [FastAPI](https://fastapi.tiangolo.com/).
-
----
 
 For questions or demo instructions, see the code comments or contact the author.
-

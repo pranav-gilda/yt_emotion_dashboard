@@ -14,14 +14,18 @@ import io
 # ────────────────────────────────────────────────────────────────────────────────
 RESPECT = {"admiration", "approval", "caring"}
 CONTEMPT = {"annoyance", "disapproval", "disgust"}
+# List of all emotions the model can predict
 ALL_EMOTIONS = sorted(
-    list(RESPECT | CONTEMPT | {        # keep key ones first
+    list(RESPECT | CONTEMPT | {
         "neutral", "joy", "sadness", "anger", "fear", "surprise", "optimism",
         "gratitude", "curiosity", "confusion", "excitement", "embarrassment",
         "love", "desire", "remorse", "relief", "grief", "nervousness", "pride",
         "amusement", "disappointment", "realization"
     })
 )
+
+# Emotions to exclude when determining the "most dominant" non-neutral emotion
+NON_DOMINANT_EMOTIONS = {'neutral'}
 
 # ────────────────────────────────────────────────────────────────────────────────
 # UTILITIES
@@ -53,19 +57,21 @@ def analyse_transcript(transcript: str, model_type: str) -> dict:
             scores[emo["label"]] += emo["score"]
             counts[emo["label"]] += 1
 
-    avg = {l: scores[l] / counts[l] for l in scores}
-    dominant = max(avg, key=avg.get)
+    avg = {l: scores[l] / counts[l] for l in scores if counts[l] > 0}
 
-    comb = {**{k: avg[k] for k in RESPECT if k in avg},
-            **{k: avg[k] for k in CONTEMPT if k in avg}}
-    dom_att = max(comb, key=comb.get) if comb else None
+    # Calculate dominant emotion by excluding neutral and other non-expressive emotions
+    emotional_scores = {k: v for k, v in avg.items() if k not in NON_DOMINANT_EMOTIONS}
+    dominant = max(emotional_scores, key=emotional_scores.get) if emotional_scores else "neutral"
 
+    # Calculate dominant attitude (respect vs contempt)
+    attitude_scores = {k: v for k, v in avg.items() if k in RESPECT | CONTEMPT}
+    dom_att = max(attitude_scores, key=attitude_scores.get) if attitude_scores else None
     return {
         "average_scores": avg,
         "dominant_emotion": dominant,
-        "dominant_emotion_score": avg[dominant],
+        "dominant_emotion_score": avg.get(dominant, 0),
         "dominant_attitude_emotion": dom_att,
-        "dominant_attitude_score": comb.get(dom_att, 0)
+        "dominant_attitude_score": attitude_scores.get(dom_att, 0)
     }
 
 def to_dataframe(emotion_result: dict) -> pd.DataFrame:
@@ -97,7 +103,6 @@ def save_styled_excel(df: pd.DataFrame, save_path: str):
             else:
                 ws.set_column(idx, idx, 14)
 
-# Add the new function to create styled Excel in bytes
 def create_styled_excel_bytes(df: pd.DataFrame) -> io.BytesIO:
     """Creates a styled Excel file in memory and returns it as a BytesIO object."""
     import io, xlsxwriter
@@ -111,7 +116,6 @@ def create_styled_excel_bytes(df: pd.DataFrame) -> io.BytesIO:
         red    = wb.add_format({'bold': True, 'bg_color': '#FFD4D4'})
         bold_format = wb.add_format({'bold': True})
 
-        # Apply column styling based on emotion names in models.RESPECT/CONTEMPT for score columns
         header_map = {col: idx for idx, col in enumerate(df.columns)}
 
         for emo in ALL_EMOTIONS:
@@ -124,33 +128,22 @@ def create_styled_excel_bytes(df: pd.DataFrame) -> io.BytesIO:
                     ws.set_column(col_idx, col_idx, 14, red)
                 else:
                     ws.set_column(col_idx, col_idx, 14)
-
-        # Apply styling to dominant columns (bolding and conditional coloring)
+        
         dominant_cols = ["dominant_emotion", "dominant_emotion_score", "dominant_attitude_emotion", "dominant_attitude_score"]
         for col in dominant_cols:
             if col in header_map:
                 col_idx = header_map[col]
-                ws.set_column(col_idx, col_idx, 18, bold_format) # Apply bold format
+                ws.set_column(col_idx, col_idx, 18, bold_format) 
 
-                # Apply conditional formatting for background color based on dominant emotion
                 if col in ["dominant_emotion", "dominant_attitude_emotion"]:
-                    # Define formats for conditional formatting (yellow for RESPECT, red for CONTEMPT)
                     cf_yellow = wb.add_format({'bg_color': '#FFFACD'})
                     cf_red = wb.add_format({'bg_color': '#FFD4D4'})
-
-                    # Apply conditional formatting rule: if cell value is in RESPECT, format yellow
-                    ws.conditional_format(1, col_idx, len(df), col_idx,  # Apply to data rows
-                        {'type': 'text', 'criteria': 'containing', 'value': ', '.join(list(RESPECT)), 'format': cf_yellow})
-
-                    # Apply conditional formatting rule: if cell value is in CONTEMPT, format red
-                    ws.conditional_format(1, col_idx, len(df), col_idx,  # Apply to data rows
-                        {'type': 'text', 'criteria': 'containing', 'value': ', '.join(list(CONTEMPT)), 'format': cf_red})
-
+                    ws.conditional_format(1, col_idx, len(df), col_idx, {'type': 'text', 'criteria': 'containing', 'value': ', '.join(list(RESPECT)), 'format': cf_yellow})
+                    ws.conditional_format(1, col_idx, len(df), col_idx, {'type': 'text', 'criteria': 'containing', 'value': ', '.join(list(CONTEMPT)), 'format': cf_red})
 
     output.seek(0)
     return output
 
-# one-shot wrapper ----------------------------------------------------------------
 def run_go_emotions(transcript: str, model_type: str,
                     file_name: str | None = None) -> dict:
     res = analyse_transcript(transcript, model_type)
