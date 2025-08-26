@@ -1,33 +1,55 @@
-# YouTube Emotion Analyzer & Transcript Parser 🚦
+# Emotion Analyzer 🚦
 
-A full-stack solution for analyzing YouTube video emotions using a Chrome extension and FastAPI backend. Visualize respect/contempt and all 28 GoEmotions with a modern speedometer UI and detailed modal.
-
----
-
-## Features
-- 🧠 **FastAPI backend**: Processes YouTube video transcripts, runs RoBERTa-GoEmotions, and returns per-emotion and aggregate scores (Respect, Contempt, Positive, Negative, Neutral).
-- 🌐 **Chrome extension**: Auto-detects YouTube videos, overlays a speedometer UI, and provides a "Learn More" modal with all emotion scores and categories.
-- 🎨 **Modern UI/UX**: Clean, color-coded, and demo-ready overlay and modal. Refresh and info buttons, dominant emotion/attitude display, and responsive design.
-- 📊 **Excel export**: Download enriched emotion history as Excel (via backend endpoint).
-- 🔒 **Configurable**: Uses environment variables and S3 for storage (if configured).
+A full-stack solution for analyzing emotions using a Chrome extension and backend that is deployed on the AWS Cloud. Visualize respect/contempt and all 28 GoEmotions with a modern speedometer UI and detailed modal.
 
 ---
+1. Installation
+To install the extension, please follow these steps:
 
-## Installation & Usage
+Download the Code: Download the extension folder from the feature/paste-transcript branch of the Git repository.
 
-### 1. Backend (FastAPI)
-```sh
-pip install -r requirements.txt
-python main.py
-```
-- The API runs on `http://localhost:8080` by default.
+Open Chrome Extensions: Open your Google Chrome browser and navigate to chrome://extensions.
 
-### 2. Chrome Extension
-- Load the `extension/` folder as an unpacked extension in Chrome.
-- The overlay will auto-appear on YouTube video pages.
-- Click the refresh icon (top-left) to re-analyze, or "Learn More" for emotion details.
+Enable Developer Mode: In the top-right corner of the page, make sure the "Developer mode" toggle is switched on.
 
----
+Load the Extension:
+
+Click the "Load unpacked" button that appears on the top-left.
+
+A file dialog will open. Select the extension folder that you downloaded in Step 1.
+
+The "Emotion Analyzer" extension will now appear in your list of extensions and in your Chrome toolbar.
+
+2. How to Use & Provide Feedback
+The current version of the extension works by pasting text directly into its popup window.
+
+Copy Text: Go to any website (e.g., a news article, a YouTube transcript) and copy a block of text to your clipboard.
+
+Open the Extension: Click the Emotion Analyzer icon in your Chrome toolbar.
+
+Analyze:
+
+Paste the text you copied into the text box.
+
+Click the "Analyze" button.
+
+View Results: The view will switch to show the speedometer with the main analysis results.
+
+Provide Feedback (Most Important Step!):
+
+Below the speedometer, you will see a feedback form.
+
+Click 👍 or 👎 to rate the analysis.
+
+Use the dropdown menu to select the emotion you felt was most dominant.
+
+Add any detailed notes or comments in the text box.
+
+Click "Submit Feedback".
+
+View Details: Click the "Learn More" button to see a detailed breakdown of all emotion scores. Click "Back to Results" to return to the main view.
+
+Thank you for your help in testing and improving this tool!
 
 ## Emotion Categories
 - **Respect**: Admiration, Approval, Caring
@@ -36,5 +58,3 @@ python main.py
 - **Neutral**: Confusion, Curiosity, Desire, Realization, Surprise, Neutral
 - **Negative**: Anger, Disappointment, Embarrassment, Fear, Grief, Nervousness, Remorse, Sadness
 
-
-For questions or demo instructions, see the code comments or contact the author.
