@@ -145,7 +145,7 @@ def create_styled_excel_bytes(df: pd.DataFrame) -> io.BytesIO:
     return output
 
 def run_go_emotions(transcript: str, model_type: str,
-                    file_name: str | None = None) -> dict:
+                    file_name: str | None = None) -> dict: # type: ignore
     res = analyse_transcript(transcript, model_type)
     if file_name:
         if not file_name.endswith(".xlsx"):
@@ -155,4 +155,4 @@ def run_go_emotions(transcript: str, model_type: str,
 
 
 if __name__ == "__main__":
-    run_go_emotions()
+    run_go_emotions() # type: ignore

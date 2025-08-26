@@ -1,0 +1,24 @@
+[
+  {
+    "id": "test_case_001_nuanced",
+    "transcript": "While the recent economic stimulus has temporarily bolstered consumer confidence, economists remain divided, pointing out that potential inflationary pressures and supply chain constraints could undermine long-term growth.",
+    "expected_output": {
+      "nuance": { "score": 4, "rationale": "The text presents conflicting economic views and considers both short-term benefits and long-term risks." },
+      "creativity_vs_order": { "score": -2, "rationale": "The focus is on economic systems and policy, not creative or human-centered stories." },
+      "safety_vs_threat": { "score": 0, "rationale": "The text balances a sense of safety (bolstered confidence) with potential threats (inflationary pressures)." },
+      "compassion_vs_contempt": { "score": 1, "rationale": "The language is neutral and professional, showing no contempt towards any group." },
+      "reporting_vs_opinion": { "score": 2, "rationale": "The text reports on differing expert opinions but leans slightly analytical." }
+    }
+  },
+  {
+    "id": "test_case_002_threat_framing",
+    "transcript": "The unprecedented surge in violent crime has plunged the city into crisis, leaving residents fearful and demanding immediate action. Security experts warned of imminent threats from all sides.",
+    "expected_output": {
+      "nuance": { "score": -4, "rationale": "The text is one-sided, focusing exclusively on crisis and fear without providing context or alternative views." },
+      "creativity_vs_order": { "score": -3, "rationale": "The emphasis is on law and order and responding to threats, not creative solutions." },
+      "safety_vs_threat": { "score": -5, "rationale": "The language heavily emphasizes crisis, danger, and threat with words like 'surge', 'plunged', and 'imminent threats'." },
+      "compassion_vs_contempt": { "score": 0, "rationale": "The text does not target a specific outgroup, maintaining a neutral stance in that regard." },
+      "reporting_vs_opinion": { "score": -2, "rationale": "While reporting on events, the framing is highly persuasive and designed to evoke an emotional response." }
+    }
+  }
+]

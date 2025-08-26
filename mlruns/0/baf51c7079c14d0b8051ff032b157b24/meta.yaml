@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/prana/Documents/Documents/CU/peace_research/codes/AI_AC4a_Fall2023/yt_parser/mlruns/0/baf51c7079c14d0b8051ff032b157b24/artifacts
+deleted_time: 1755547743051
+end_time: 1755547085073
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: deleted
+run_id: baf51c7079c14d0b8051ff032b157b24
+run_name: Eval_gemini_v1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1755547084941
+status: 3
+tags: []
+user_id: prana

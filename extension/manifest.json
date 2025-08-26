@@ -1,12 +1,13 @@
 {
     "manifest_version": 3,
     "name": "YouTube Emotion Analyzer",
-    "version": "1.0",
+    "version": "1.1",
     "description": "Real-time emotion analysis for YouTube videos",
     "permissions": [
         "storage",
         "tabs",
-        "activeTab"
+        "activeTab",
+        "sidePanel"
     ],
     "background": {
         "service_worker": "background.js"
@@ -17,12 +18,18 @@
     ],
     "content_scripts": [
         {
-            "matches": ["https://www.youtube.com/*"],
-            "js": ["content.js"]
+            "matches": [
+                "https://www.youtube.com/*"
+            ],
+            "js": [
+                "content.js"
+            ]
         }
     ],
     "action": {
-        "default_popup": "popup.html"
+        "default_title": "Emotion Analyzer"
+    },
+    "side_panel": {
+        "default_path": "sidepanel.html"
     }
 }
-  

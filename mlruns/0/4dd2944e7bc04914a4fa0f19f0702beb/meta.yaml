@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/prana/Documents/Documents/CU/peace_research/codes/AI_AC4a_Fall2023/yt_parser/mlruns/0/4dd2944e7bc04914a4fa0f19f0702beb/artifacts
+deleted_time: 1755547743055
+end_time: 1755547084939
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: deleted
+run_id: 4dd2944e7bc04914a4fa0f19f0702beb
+run_name: Eval_openai_v1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1755547084719
+status: 3
+tags: []
+user_id: prana

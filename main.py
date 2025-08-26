@@ -1,28 +1,19 @@
 import os
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict, Optional, Any
-import boto3
-import models
-import logging
-import io
+from typing import Dict, Any
 import pandas as pd
 from datetime import datetime
+import logging
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-
-# Add openpyxl to your requirements.txt. It's needed for pandas to read .xlsx files.
-try:
-    import openpyxl
-except ImportError:
-    logging.warning("openpyxl not found. Please run 'pip install openpyxl' to enable Excel feedback logging.")
+import openpyxl
+import mlflow
+import models 
+from llm_analyzer import analyze_transcript_with_llm
 
 load_dotenv()
-
 logging.basicConfig(level=logging.INFO)
-logging.info(f"🧠 main.py is loading models from: {models.__file__}")
-
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -31,112 +22,121 @@ app.add_middleware(
 
 class TranscriptRequest(BaseModel):
     transcript: str
-    model_name: str = "roberta_go_emotions"
 
 class FeedbackPayload(BaseModel):
+    model_type: str
     original_transcript: str
     model_analysis: Dict[str, Any]
     user_feedback: Dict[str, Any]
 
-FEEDBACK_FILE_PATH = "feedback_log.xlsx"
-
 @app.post("/feedback")
 async def receive_feedback(payload: FeedbackPayload):
-    """
-    Receives feedback from the extension and appends it as a new row in an Excel file.
-    """
-    try:
-        new_feedback_row = {
-            "timestamp": datetime.now().isoformat(),
-            "user_rating": payload.user_feedback.get('rating'),
-            "user_dominant_emotion": payload.user_feedback.get('user_emotion'),
-            "user_comment": payload.user_feedback.get('comment'),
-            "model_dominant_emotion": payload.model_analysis.get('dominant_emotion'),
-            "model_dominant_score": payload.model_analysis.get('dominant_emotion_score'),
-            "model_respect_score": payload.model_analysis.get('aggregate_scores', {}).get('respect'),
-            "model_contempt_score": payload.model_analysis.get('aggregate_scores', {}).get('contempt'),
-            "original_transcript": payload.original_transcript
-        }
-        
-        if os.path.exists(FEEDBACK_FILE_PATH):
-            # --- START OF FIX ---
-            # Explicitly use the 'openpyxl' engine for reading.
-            df = pd.read_excel(FEEDBACK_FILE_PATH, engine='openpyxl')
-            # --- END OF FIX ---
-            new_row_df = pd.DataFrame([new_feedback_row])
-            df = pd.concat([df, new_row_df], ignore_index=True)
-        else:
-            df = pd.DataFrame([new_feedback_row])
-            
-        # --- START OF FIX ---
-        # Explicitly use the 'xlsxwriter' engine for writing, which is already in your requirements.
-        df.to_excel(FEEDBACK_FILE_PATH, index=False, engine='xlsxwriter')
-        # --- END OF FIX ---
-        
-        logging.info(f"Feedback successfully saved to {FEEDBACK_FILE_PATH}")
-        
-        return {"status": "success", "message": "Feedback received. Thank you!"}
-    except Exception as e:
-        logging.error(f"Error processing feedback: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error processing feedback.")
+    feedback_file_path = f"feedback_{payload.model_type}.xlsx"
+    new_feedback_row = {
+        "timestamp": datetime.now().isoformat(),
+        "user_rating": payload.user_feedback.get('rating'),
+        "user_dominant_emotion": payload.user_feedback.get('user_emotion'),
+        "user_comment": payload.user_feedback.get('comment'),
+        "model_analysis_json": str(payload.model_analysis),
+        "original_transcript": payload.original_transcript
+    }
+    if os.path.exists(feedback_file_path):
+        df = pd.read_excel(feedback_file_path, engine='openpyxl')
+        new_row_df = pd.DataFrame([new_feedback_row])
+        df = pd.concat([df, new_row_df], ignore_index=True)
+    else:
+        df = pd.DataFrame([new_feedback_row])
+    df.to_excel(feedback_file_path, index=False, engine='xlsxwriter')
+    logging.info(f"Feedback successfully saved to {feedback_file_path}")
+    return {"status": "success", "message": "Feedback received!"}
 
-
-@app.post("/run_models")
-def run_models(request: TranscriptRequest):
-    """
-    Receives raw transcript text, runs emotion analysis, and returns a
-    structured JSON response compatible with the extension's UI.
-    """
+@app.post("/run_roberta_model")
+def run_roberta_model(request: TranscriptRequest):
     try:
-        if request.model_name not in {"go_emotions", "roberta_go_emotions"}:
-            raise HTTPException(status_code=400, detail="Model not recognized.")
-        
-        result = models.run_go_emotions(request.transcript, request.model_name)
+        result = models.run_go_emotions(request.transcript, "roberta_go_emotions")
         average_scores = result.get("average_scores", {})
-
-        neutral_score = average_scores.get('neutral', 0)
-
+        
+        # Convert all scores to percentages (0-100 scale)
+        percent_scores = {key: value * 100 for key, value in average_scores.items()}
+    
+        neutral_score = percent_scores.get('neutral', 0)
         respect_emotions = ['approval', 'caring', 'admiration']
         contempt_emotions = ['disapproval', 'disgust', 'annoyance']
         positive_emotions = ['amusement', 'excitement', 'joy', 'love', 'optimism', 'pride', 'relief', 'gratitude']
         negative_emotions = ['anger', 'disappointment', 'embarrassment', 'fear', 'grief', 'nervousness', 'remorse', 'sadness']
         neutral_emotions_list = ['confusion', 'curiosity', 'desire', 'realization', 'surprise']
-
+        
+        # Change aggregation from average to SUM of percentages
         def agg(emolist):
-            vals = [average_scores.get(e, 0) for e in emolist]
-            return sum(vals) / len(vals) if vals else 0
-
-        agg_scores = {
-            'respect': agg(respect_emotions),
-            'contempt': agg(contempt_emotions),
-            'positive': agg(positive_emotions),
-            'negative': agg(negative_emotions),
-        }
-
+            return sum([percent_scores.get(e, 0) for e in emolist])
+        
+        agg_scores = {'respect': agg(respect_emotions), 'contempt': agg(contempt_emotions), 'positive': agg(positive_emotions), 'negative': agg(negative_emotions)}
+        
         def emotion_scores(emolist):
-            return [{'label': e.capitalize(), 'score': round(average_scores.get(e, 0), 4)} for e in emolist]
-
-        grouped = {
-            'respect': emotion_scores(respect_emotions),
-            'contempt': emotion_scores(contempt_emotions),
-            'positive': emotion_scores(positive_emotions),
-            'negative': emotion_scores(negative_emotions),
-            'neutral_breakdown': emotion_scores(neutral_emotions_list),
-        }
-
+            return [{'label': e.capitalize(), 'score': percent_scores.get(e, 0)} for e in emolist]
+            
+        grouped = {'respect': emotion_scores(respect_emotions), 'contempt': emotion_scores(contempt_emotions), 'positive': emotion_scores(positive_emotions), 'negative': emotion_scores(negative_emotions), 'neutral_breakdown': emotion_scores(neutral_emotions_list)}
+        
         return {
             'dominant_emotion': result.get('dominant_emotion'),
-            'dominant_emotion_score': result.get('dominant_emotion_score'),
-            'dominant_attitude_emotion': result.get('dominant_attitude_emotion'),
-            'dominant_attitude_score': result.get('dominant_attitude_score'),
+            'dominant_emotion_score': percent_scores.get(result.get('dominant_emotion'), 0),
             'aggregate_scores': agg_scores,
             'neutral_score': neutral_score,
             'emotions': grouped
         }
-
     except Exception as e:
-        logging.error(f"Error in /run_models: {e}", exc_info=True)
+        logging.error(f"Error in RoBERTa model endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze_with_llm")
+async def analyze_with_llm_endpoint(request: TranscriptRequest):
+    try:
+        if not request.transcript:
+            raise HTTPException(status_code=400, detail="Transcript cannot be empty.")
+        analysis_result = analyze_transcript_with_llm(request.transcript, model_name="gemini")
+        
+        return analysis_result
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logging.error(f"Error in LLM analysis endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred during LLM analysis.")
+
+# --- New Pydantic Model for MLflow Logging ---
+class MLflowLogPayload(BaseModel):
+    model_name: str
+    prompt_version: str
+    transcript: str
+    analysis_output: Dict[str, Any]
+    # You could add more context here later, like the YouTube video ID
+
+@app.post("/log_llm_run")
+async def log_llm_run_to_mlflow(payload: MLflowLogPayload):
+    """
+    Receives the results of a real-world analysis from the extension
+    and logs the entire run to MLflow for later review.
+    """
+    try:
+        with mlflow.start_run(run_name=f"LiveRun_{payload.model_name}"):
+            # Log parameters
+            mlflow.log_param("run_type", "live_extension")
+            mlflow.log_param("model_name", payload.model_name)
+            mlflow.log_param("prompt_version", payload.prompt_version)
+            mlflow.log_param("transcript_length", len(payload.transcript))
+
+            # Log the actual text inputs and outputs as artifacts
+            mlflow.log_text(payload.transcript, "transcript.txt")
+            mlflow.log_dict(payload.analysis_output, "analysis_output.json")
+
+            # Log key output metrics for easy comparison in the UI
+            for dimension, values in payload.analysis_output.items():
+                if isinstance(values, dict) and 'score' in values:
+                    mlflow.log_metric(f"score_{dimension}", values['score'])
+        
+        return {"status": "success", "message": "Run logged to MLflow."}
+    except Exception as e:
+        logging.error(f"Failed to log run to MLflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to log run to MLflow.")
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,45 +1,25 @@
-// Listen for messages from content.js and popup.js
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.url) {
-      // Save the URL in storage
-      chrome.storage.local.set({ currentVideo: { url: message.url } });
-      // Forward to popup if open
-      chrome.runtime.sendMessage({
-          type: "NEW_VIDEO",
-          data: { url: message.url }
-      });
-      // Add to history
-      chrome.storage.local.get("urlList", result => {
-          const list = result.urlList || [];
-          if (!list.includes(message.url)) {
-              list.push(message.url);
-              chrome.storage.local.set({ urlList: list });
-          }
-      });
-      sendResponse && sendResponse({ status: "ok" });
-  }
-  if (message.action === 'setBadge') {
-      chrome.action.setBadgeText({ text: message.value });
-      chrome.action.setBadgeBackgroundColor({ color: "#4caf50" });
-  }
-  return true;
-});
+// This script controls the extension's side panel behavior.
 
-// Keep a history of all watched URLs
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === "complete"
-        && tab.url
-        && (tab.url.includes("youtube.com") || tab.url.includes("youtu.be"))
-    ) {
-        chrome.storage.local.get("urlList", result => {
-            const list = result.urlList || [];
-            if (!list.includes(tab.url)) {
-                list.push(tab.url);
-                chrome.storage.local.set({ urlList: list }, () => {
-                    // Optionally log for debugging
-                    // console.log("[background] urlList updated:", tab.url);
-                });
-            }
+// Only enable the side panel on YouTube video pages.
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+    if (!tab.url) return;
+    const url = new URL(tab.url);
+    if (url.hostname === "www.youtube.com") {
+        await chrome.sidePanel.setOptions({
+            tabId,
+            path: "sidepanel.html",
+            enabled: true,
+        });
+    } else {
+        // Disable the side panel on other sites
+        await chrome.sidePanel.setOptions({
+            tabId,
+            enabled: false,
         });
     }
+});
+
+// Open the side panel when the user clicks the extension's toolbar icon.
+chrome.action.onClicked.addListener((tab) => {
+    chrome.sidePanel.open({ windowId: tab.windowId });
 });
