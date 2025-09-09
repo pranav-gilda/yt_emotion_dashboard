@@ -31,54 +31,33 @@ document.addEventListener('DOMContentLoaded', function() {
     submitFeedbackBtn.addEventListener('click', handleFeedbackSubmit);
     thumbUpBtn.addEventListener('click', () => setThumbRating('up'));
     thumbDownBtn.addEventListener('click', () => setThumbRating('down'));
-
-    // --- NEW, ROBUST LOGIC for scraping and analysis ---
     
-    /**
-     * This is the main function called when the user clicks "Import".
-     * It now properly handles the request/response flow with the content script.
-     */
     async function handleImportClick() {
         importBtn.disabled = true;
         importBtn.textContent = 'Importing...';
         hideError();
 
         try {
-            // Find the currently active tab in the user's window.
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            
-            if (!tab) {
-                throw new Error("Could not find an active tab.");
-            }
-
-            // Send a message to the content script on that tab and wait for its response.
+            if (!tab) { throw new Error("Could not find an active tab."); }
             const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_TRANSCRIPT' });
 
-            // Check the response from the content script.
             if (response && response.success) {
-                // If successful, send the transcript to our backend.
                 await sendTranscriptToBackend(response.transcript);
             } else {
-                // If the content script responded with an error, display it.
                 throw new Error(response.error || "The content script failed to find the transcript.");
             }
-
         } catch (error) {
-            // This 'catch' block will now correctly handle the "Receiving end does not exist" error.
             console.error("Error communicating with the content script:", error);
             showError("Could not connect to the YouTube page. Please refresh the page and try again.");
-            // Reset the button so the user can retry.
             importBtn.disabled = false;
             importBtn.textContent = 'Import Transcript & Analyze';
         }
     }
 
-    /**
-     * Sends the scraped transcript to the backend API for analysis.
-     */
     async function sendTranscriptToBackend(transcript) {
         importBtn.textContent = 'Analyzing...';
-        originalTranscript = transcript; // Store for feedback functionality
+        originalTranscript = transcript;
 
         try {
             const url = `http://18.222.120.158:8080/run_models`;
@@ -97,20 +76,37 @@ document.addEventListener('DOMContentLoaded', function() {
             lastAnalysisData = data;
             
             populateEmotionDropdown(data);
-            updateGauge(data.aggregate_scores.respect, data.aggregate_scores.contempt);
+            
+            // --- FIX #1: NEW SPEEDOMETER CALCULATION ---
+            const respectEmotions = ['admiration', 'gratitude', 'joy'];
+            const contemptEmotions = ['anger', 'disapproval', 'disgust'];
+
+            // Create a quick lookup map of all emotion scores
+            const allEmotionScores = {};
+            if (data.emotions) {
+                for (const category in data.emotions) {
+                    if (Array.isArray(data.emotions[category])) {
+                        data.emotions[category].forEach(e => {
+                            allEmotionScores[e.label.toLowerCase()] = e.score;
+                        });
+                    }
+                }
+            }
+
+            // Calculate the sum for the 3 specific emotions for each category
+            const specificRespectSum = respectEmotions.reduce((sum, emotion) => sum + (allEmotionScores[emotion] || 0), 0);
+            const specificContemptSum = contemptEmotions.reduce((sum, emotion) => sum + (allEmotionScores[emotion] || 0), 0);
+            
+            updateGauge(specificRespectSum, specificContemptSum);
             showResultsView();
 
         } catch (err) {
             showError(err.message);
         } finally {
-            // Reset the button in the input view, even though it's hidden.
             importBtn.disabled = false;
             importBtn.textContent = 'Import Transcript & Analyze';
         }
     }
-
-
-    // --- ALL FUNCTIONS BELOW ARE CARRIED OVER FROM YOUR PREVIOUS WORKING popup.js ---
 
     function showInputView() {
         resultsView.style.display = 'none';
@@ -185,7 +181,9 @@ document.addEventListener('DOMContentLoaded', function() {
             allEmotions.push(data.dominant_emotion.charAt(0).toUpperCase() + data.dominant_emotion.slice(1));
         }
         for (const category in data.emotions) {
-            allEmotions.push(...data.emotions[category].map(e => e.label));
+            if(Array.isArray(data.emotions[category])) {
+                allEmotions.push(...data.emotions[category].map(e => e.label));
+            }
         }
         const uniqueEmotions = [...new Set(allEmotions)];
         uniqueEmotions.sort().forEach(emotion => {
@@ -196,8 +194,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function updateGauge(avgRespect, avgContempt) {
-        const combinedScore = avgRespect - avgContempt;
+    function updateGauge(totalRespect, totalContempt) {
+        const combinedScore = totalRespect - totalContempt;
         const angle = 180 - ((combinedScore - SCALE_MIN) / (SCALE_MAX - SCALE_MIN)) * 180;
         const r = 70, cx = 110, cy = 100;
         const rad = (angle * Math.PI) / 180;
@@ -205,26 +203,48 @@ document.addEventListener('DOMContentLoaded', function() {
         const y2 = cy - r * Math.sin(rad);
         gaugeNeedle.setAttribute('x2', x2);
         gaugeNeedle.setAttribute('y2', y2);
-        respectValue.innerHTML = `<b>${avgRespect.toFixed(3)}</b>`;
-        contemptValue.innerHTML = `<b>${avgContempt.toFixed(3)}</b>`;
+
+        const respectPercent = totalRespect * 100;
+        const contemptPercent = totalContempt * 100;
+
+        respectValue.innerHTML = `<b>${respectPercent.toFixed(1)}%</b>`;
+        contemptValue.innerHTML = `<b>${contemptPercent.toFixed(1)}%</b>`;
     }
 
     function renderDetails(data) {
         const colors = { Respect: '#4caf50', Contempt: '#ff4d4f', Positive: '#2196f3', Negative: '#9c27b0', Neutral: '#ffd700' };
         let detailsHTML = `<h2>Detailed Analysis</h2>`;
+        
+        // --- FIX #2: This inner function now calculates the total sum itself ---
         function renderCategory(title, emotions) {
             if (!emotions || emotions.length === 0) return '';
-            let categoryHTML = `<div class="modal-cat-header" style="color:${colors[title]}">${title}</div><div class="emotions-list">`;
+            
+            // Calculate the total by summing the scores of the items in the list
+            const totalScore = emotions.reduce((sum, emotion) => sum + emotion.score, 0);
+            const totalPercent = (totalScore * 100).toFixed(1);
+            
+            let categoryHTML = `
+                <div class="modal-cat-header" style="color:${colors[title]}; display: flex; justify-content: space-between;">
+                    <span>${title}</span>
+                    <span style="font-weight: bold;">Total: ${totalPercent}%</span>
+                </div>
+                <div class="emotions-list">`;
+            
             emotions.forEach(e => {
-                categoryHTML += `<div class="emotion-item"><span>${e.label}</span><span style="color:${colors[title]}; font-weight:bold;">${e.score.toFixed(3)}</span></div>`;
+                const scorePercent = e.score * 100;
+                categoryHTML += `<div class="emotion-item"><span>${e.label}</span><span style="color:${colors[title]}; font-weight:bold;">${scorePercent.toFixed(1)}%</span></div>`;
             });
+
             return categoryHTML + `</div>`;
         }
+
+        // Call the render function for each category
         detailsHTML += renderCategory('Respect', data.emotions.respect);
         detailsHTML += renderCategory('Contempt', data.emotions.contempt);
         detailsHTML += renderCategory('Positive', data.emotions.positive);
         detailsHTML += renderCategory('Negative', data.emotions.negative);
         detailsHTML += renderCategory('Neutral', data.emotions.neutral_breakdown);
+
         detailsHTML += `<div class="button-group" style="margin-top: 15px;"><button id="detailsBackBtn">Back to Results</button></div>`;
         detailsView.innerHTML = detailsHTML;
         document.getElementById('detailsBackBtn').addEventListener('click', showResultsView);
