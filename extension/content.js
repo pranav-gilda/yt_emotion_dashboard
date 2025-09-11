@@ -169,6 +169,7 @@ async function getTranscript(videoId = 'LPZh9BOjkQs', languageCode = 'en') {
     }
     return obj
 }
+
 /**
  * Listens for messages from other parts of the extension (like the side panel).
  * When it receives a 'SCRAPE_TRANSCRIPT' request, it finds the transcript on the page
