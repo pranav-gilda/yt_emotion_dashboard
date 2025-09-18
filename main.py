@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import pipeline
-from typing import Dict, Any  # Import Any for more flexible data structures
+from typing import Dict, Any
 
 # --- Basic Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,13 +24,11 @@ class TranscriptRequest(BaseModel):
     transcript: str
 
 class FeedbackPayload(BaseModel):
-    # This model should match what your working sidepanel.js is sending
     original_transcript: str
     model_analysis: Dict[str, Any]
-    user_feedback: Dict[str, str]
+    user_feedback: Dict[str, Any]
 
 # --- ML Model Loading ---
-# This global variable will hold the model in memory after it's loaded once.
 classifier = None
 
 @app.on_event("startup")
@@ -43,8 +41,6 @@ async def startup_event():
     logging.info("Application startup...")
     try:
         logging.info("Loading RoBERTa model... (This should only happen once!)")
-        # The first time this runs, it will download the model if not cached.
-        # Subsequent restarts will load from the server's cache.
         classifier = pipeline(
             task="text-classification",
             model="SamLowe/roberta-base-go_emotions",
@@ -56,7 +52,6 @@ async def startup_event():
         classifier = None
 
 # --- API Endpoints ---
-# The user's working script calls /run_models, so we use that endpoint name.
 @app.post("/run_models")
 async def run_models(request: TranscriptRequest):
     logging.info("Received new transcript for analysis.")
@@ -68,14 +63,16 @@ async def run_models(request: TranscriptRequest):
 
     try:
         cleaned_transcript = request.transcript.strip().replace("\n", " ")
-        model_outputs = classifier(cleaned_transcript)
         
-        # This logic should be updated to return the rich structure your sidepanel.js expects
-        # Based on your sidepanel code, it expects 'aggregate_scores' and 'emotions'
+        # Truncate the transcript to the first 500 words to ensure it fits the model's max length.
+        # Transformer models have a limit; this prevents errors on long videos.
+        truncated_transcript = " ".join(cleaned_transcript.split()[:500])
+        
+        # Pass the truncated transcript to the model.
+        model_outputs = classifier(truncated_transcript)
         
         all_emotions_dict = {item['label']: item['score'] for item in model_outputs[0]}
         
-        # Define emotion categories based on your definitive list
         respect_list = ["admiration", "approval", "caring"]
         contempt_list = ["disapproval", "disgust", "annoyance"]
         positive_list = ["amusement", "excitement", "joy", "love", "optimism", "pride", "relief", "gratitude"]
@@ -96,13 +93,11 @@ async def run_models(request: TranscriptRequest):
             "negative": get_emotion_details(negative_list),
             "neutral_breakdown": get_emotion_details(neutral_list)
         }
-
-        # Calculate aggregate scores
+        
         aggregate_scores = {
             cat: sum(e['score'] for e in emotions) for cat, emotions in emotions_by_category.items()
         }
-
-        # Find dominant emotion
+        
         dominant_emotion = max(all_emotions_dict, key=all_emotions_dict.get) if all_emotions_dict else "neutral"
         
         final_output = {
@@ -117,7 +112,6 @@ async def run_models(request: TranscriptRequest):
         logging.error(f"Error during model inference: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An error occurred during model processing.")
 
-# Your feedback endpoint, updated to match the payload from your working script
 @app.post("/feedback")
 async def receive_feedback(payload: FeedbackPayload):
     feedback_file = 'feedback_log.xlsx'
