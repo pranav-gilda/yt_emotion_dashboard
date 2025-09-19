@@ -33,10 +33,6 @@ classifier = None
 
 @app.on_event("startup")
 async def startup_event():
-    """
-    This function runs ONLY ONCE when the FastAPI application starts.
-    It loads the model into the global 'classifier' variable.
-    """
     global classifier
     logging.info("Application startup...")
     try:
@@ -56,7 +52,6 @@ async def startup_event():
 async def run_models(request: TranscriptRequest):
     logging.info("Received new transcript for analysis.")
     if not classifier:
-        logging.error("Model is not available, returning 503.")
         raise HTTPException(status_code=503, detail="Model is not available or failed to load.")
     if not request.transcript:
         raise HTTPException(status_code=400, detail="Transcript cannot be empty.")
@@ -64,12 +59,12 @@ async def run_models(request: TranscriptRequest):
     try:
         cleaned_transcript = request.transcript.strip().replace("\n", " ")
         
-        # Truncate the transcript to the first 500 words to ensure it fits the model's max length.
-        # Transformer models have a limit; this prevents errors on long videos.
-        truncated_transcript = " ".join(cleaned_transcript.split()[:500])
-        
-        # Pass the truncated transcript to the model.
-        model_outputs = classifier(truncated_transcript)
+        # --- THE DEFINITIVE FIX ---
+        # We no longer manually split the string.
+        # Instead, we pass the truncation argument directly to the pipeline.
+        # This lets the tokenizer handle long text precisely and correctly.
+        model_outputs = classifier(cleaned_transcript, truncation=True, max_length=512)
+        # --- END FIX ---
         
         all_emotions_dict = {item['label']: item['score'] for item in model_outputs[0]}
         
