@@ -13,6 +13,7 @@ testenv/
 results/
 experiments/
 transcripts/*
+subtitles/*
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints

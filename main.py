@@ -20,8 +20,11 @@ app.add_middleware(
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
+# MODIFIED: TranscriptRequest now defaults to the new "v2_streamlined" prompt
 class TranscriptRequest(BaseModel):
     transcript: str
+    model_provider: str = "openai"
+    prompt_version: str = "v2_streamlined" # New default for your experiment
 
 class FeedbackPayload(BaseModel):
     model_type: str
@@ -56,7 +59,6 @@ def run_roberta_model(request: TranscriptRequest):
         result = models.run_go_emotions(request.transcript, "roberta_go_emotions")
         average_scores = result.get("average_scores", {})
         
-        # Convert all scores to percentages (0-100 scale)
         percent_scores = {key: value * 100 for key, value in average_scores.items()}
     
         neutral_score = percent_scores.get('neutral', 0)
@@ -66,7 +68,6 @@ def run_roberta_model(request: TranscriptRequest):
         negative_emotions = ['anger', 'disappointment', 'embarrassment', 'fear', 'grief', 'nervousness', 'remorse', 'sadness']
         neutral_emotions_list = ['confusion', 'curiosity', 'desire', 'realization', 'surprise']
         
-        # Change aggregation from average to SUM of percentages
         def agg(emolist):
             return sum([percent_scores.get(e, 0) for e in emolist])
         
@@ -93,42 +94,36 @@ async def analyze_with_llm_endpoint(request: TranscriptRequest):
     try:
         if not request.transcript:
             raise HTTPException(status_code=400, detail="Transcript cannot be empty.")
-        analysis_result = analyze_transcript_with_llm(request.transcript, model_name="gemini")
+            
+        analysis_result = analyze_transcript_with_llm(
+            transcript=request.transcript,
+            model_provider=request.model_provider,
+            prompt_version=request.prompt_version
+        )
         
         return analysis_result
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logging.error(f"Error in LLM analysis endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An internal error occurred during LLM analysis.")
 
-# --- New Pydantic Model for MLflow Logging ---
 class MLflowLogPayload(BaseModel):
     model_name: str
     prompt_version: str
     transcript: str
     analysis_output: Dict[str, Any]
-    # You could add more context here later, like the YouTube video ID
 
 @app.post("/log_llm_run")
 async def log_llm_run_to_mlflow(payload: MLflowLogPayload):
-    """
-    Receives the results of a real-world analysis from the extension
-    and logs the entire run to MLflow for later review.
-    """
     try:
         with mlflow.start_run(run_name=f"LiveRun_{payload.model_name}"):
-            # Log parameters
             mlflow.log_param("run_type", "live_extension")
             mlflow.log_param("model_name", payload.model_name)
             mlflow.log_param("prompt_version", payload.prompt_version)
             mlflow.log_param("transcript_length", len(payload.transcript))
-
-            # Log the actual text inputs and outputs as artifacts
             mlflow.log_text(payload.transcript, "transcript.txt")
             mlflow.log_dict(payload.analysis_output, "analysis_output.json")
-
-            # Log key output metrics for easy comparison in the UI
             for dimension, values in payload.analysis_output.items():
                 if isinstance(values, dict) and 'score' in values:
                     mlflow.log_metric(f"score_{dimension}", values['score'])
@@ -141,3 +136,4 @@ async def log_llm_run_to_mlflow(payload: MLflowLogPayload):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
+

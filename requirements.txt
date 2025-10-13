@@ -13,11 +13,14 @@ boto3
 xlsxwriter
 openpyxl
 yt-dlp
+ffmpeg-python
+requests
 gunicorn
 openai
-mlflow
 google-generativeai
 
 # Corrected torch installation:
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
+
+mlflow

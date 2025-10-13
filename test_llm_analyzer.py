@@ -1,90 +1,119 @@
+import os
 import json
 import logging
 import mlflow
-from llm_analyzer import analyze_transcript_with_llm, SYSTEM_PROMPT_V1
-from typing import List, Dict, Any
+import llm_analyzer
+from typing import List, Dict
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
+# --- Configuration ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+MLFLOW_EXPERIMENT_NAME = "Peace Speech Dimension Analysis"
 EVAL_SET_FILE = "eval_set.json"
+MODELS_TO_TEST = ["openai", "gemini"]
+PROMPT_VERSIONS_TO_TEST = ["v1", "v2"] # We will now test both versions
 
-def load_evaluation_set(file_path: str) -> List[Dict[str, Any]]:
+# --- Helper Functions ---
+
+def load_eval_set(file_path: str) -> List[Dict]:
     """Loads the evaluation set from a JSON file."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logging.error(f"Evaluation set file not found at: {file_path}")
+    if not os.path.exists(file_path):
+        logging.error(f"Evaluation set file not found: {file_path}")
         return []
-    except json.JSONDecodeError:
-        logging.error(f"Error decoding JSON from the evaluation set file: {file_path}")
-        return []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-def run_evaluation(model_to_test: str, prompt_version: str):
-    """
-    Runs the LLM analyzer against the evaluation set and logs results to MLflow.
-    """
-    eval_set = load_evaluation_set(EVAL_SET_FILE)
-    if not eval_set:
-        return
+def compare_results(expected: List[Dict], actual: List[Dict]) -> (int, int, float): # type: ignore
+    """Compares expected vs actual results and calculates Mean Absolute Error."""
+    total_metrics = 0
+    errors = []
+    
+    expected_map = {item['dimension']: item for item in expected}
 
-    # --- MLflow Integration ---
-    # Start an MLflow run. Everything inside this 'with' block will be logged.
-    with mlflow.start_run(run_name=f"Eval_{model_to_test}_{prompt_version}"):
-        
-        # Log the parameters of this experiment
-        mlflow.log_param("model_name", model_to_test)
-        mlflow.log_param("prompt_version", prompt_version)
-        mlflow.log_param("num_test_cases", len(eval_set))
-        mlflow.log_text(SYSTEM_PROMPT_V1, "prompt.txt") # Save the actual prompt text
+    if not actual:
+        logging.warning("Actual result is empty or None. Cannot compare.")
+        # Return a high error value if the model failed to produce output
+        return len(expected), 0, float(len(expected) * 10) # Max possible error
 
-        total_absolute_error = 0
-        total_dimensions = 0
-        score_errors = {
-            "nuance": 0, "creativity_vs_order": 0, "safety_vs_threat": 0,
-            "compassion_vs_contempt": 0, "reporting_vs_opinion": 0
-        }
-
-        for test_case in eval_set:
-            transcript = test_case.get("transcript")
-            expected = test_case.get("expected_output")
-
-            try:
-                actual = analyze_transcript_with_llm(transcript, model_name=model_to_test)
-                
-                for dimension, expected_values in expected.items():
-                    actual_values = actual.get(dimension, {})
-                    expected_score = expected_values.get("score")
-                    actual_score = actual_values.get("score")
-
-                    if actual_score is not None and expected_score is not None:
-                        error = abs(expected_score - actual_score)
-                        score_errors[dimension] += error
-                        total_absolute_error += error
-                        total_dimensions += 1
-            except Exception as e:
-                logging.error(f"Test case failed with exception: {e}")
-
-        # --- Log Metrics to MLflow ---
-        # Calculate and log the overall Mean Absolute Error
-        overall_mae = total_absolute_error / total_dimensions if total_dimensions > 0 else -1
-        mlflow.log_metric("overall_mae", overall_mae)
-
-        # Calculate and log the MAE for each individual dimension
-        for dim, total_error in score_errors.items():
-            mae_dim = total_error / len(eval_set) if eval_set else -1
-            mlflow.log_metric(f"mae_{dim}", mae_dim)
+    for actual_item in actual:
+        dim = actual_item['dimension']
+        if dim in expected_map:
+            total_metrics += 1
+            expected_item = expected_map[dim]
             
-        logging.info(f"--- Evaluation complete for {model_to_test} ---")
-        logging.info(f"Overall MAE: {overall_mae:.2f}")
+            try:
+                # Ensure scores are integers before comparing
+                expected_score = int(expected_item['score'])
+                actual_score = int(actual_item['score'])
+                
+                diff = abs(expected_score - actual_score)
+                if diff > 0:
+                    logging.warning(
+                        f"    - DEVIATION for '{dim}': Expected {expected_score}, Got {actual_score} (Difference: {diff})"
+                    )
+                    errors.append(diff)
+                else:
+                    logging.info(f"    - PERFECT Score for '{dim}': Expected {expected_score}, Got {actual_score}")
+            
+            except (ValueError, TypeError) as e:
+                logging.error(f"    - TYPE ERROR for '{dim}': Could not convert scores to integers. Expected={expected_item.get('score')}, Got={actual_item.get('score')}. Error: {e}")
+                errors.append(10) # Assign max error for non-integer scores
+
+    mae = sum(errors) / total_metrics if total_metrics > 0 else 0.0
+    return total_metrics, len(errors), mae
+
+
+# --- Main Execution ---
 
 if __name__ == "__main__":
-    # --- Your New Testing Workflow ---
-    # Define the experiments you want to run
-    models_to_evaluate = ["openai", "gemini"]
-    prompt_version = "v1" # You can change this as you iterate on your prompt
+    eval_set = load_eval_set(EVAL_SET_FILE)
+    if not eval_set:
+        exit()
 
-    for model in models_to_evaluate:
-        run_evaluation(model_to_test=model, prompt_version=prompt_version)
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
     
-    print("\nAll evaluations complete. Run 'mlflow ui' in your terminal to see the results.")
+    logging.info(f"--- Starting evaluation with {len(eval_set)} test cases across {len(MODELS_TO_TEST)} models and {len(PROMPT_VERSIONS_TO_TEST)} prompt versions ---")
+
+    for model_name in MODELS_TO_TEST:
+        for prompt_version in PROMPT_VERSIONS_TO_TEST:
+            with mlflow.start_run(run_name=f"{model_name}_{prompt_version}"):
+                
+                logging.info(f"\n{'='*50}\nEVALUATING MODEL: {model_name.upper()} | PROMPT: {prompt_version}\n{'='*50}")
+                
+                # Log parameters for this run
+                mlflow.log_param("model_name", model_name)
+                mlflow.log_param("prompt_version", prompt_version)
+                
+                total_mae = 0
+                total_test_cases = 0
+
+                for test_case in eval_set:
+                    test_case_id = test_case['id']
+                    logging.info(f"--- Running test case: {test_case_id} ---")
+
+                    try:
+                        analysis = llm_analyzer.analyze_transcript_with_llm(
+                            transcript=test_case["transcript"],
+                            model_name=model_name,
+                            prompt_version=prompt_version
+                        )
+                        
+                        _, _, mae = compare_results(test_case["expected_output"], analysis)
+                        total_mae += mae
+                        total_test_cases += 1
+
+                    except Exception as e:
+                        logging.error(f"Test case '{test_case_id}' failed with an exception: {e}")
+                        # If a test case fails entirely, we can't calculate MAE for it.
+                        # Depending on strictness, you might want to penalize this.
+                        # For now, we just log it and move on.
+
+                # Calculate and log the overall average MAE for this run
+                if total_test_cases > 0:
+                    overall_mae = total_mae / total_test_cases
+                    logging.info(f"\n--- Evaluation complete for {model_name.upper()} with prompt {prompt_version} ---")
+                    logging.info(f"Overall Mean Absolute Error (MAE): {overall_mae:.2f}")
+                    mlflow.log_metric("overall_mae", overall_mae)
+                else:
+                    logging.warning(f"No test cases were successfully run for {model_name.upper()} with prompt {prompt_version}.")
+
+    logging.info("\nAll evaluations complete. Run 'mlflow ui' in your terminal to see the results.")
