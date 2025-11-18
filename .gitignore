@@ -35,3 +35,39 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# ============================================================================
+# Sensitive Data - DO NOT COMMIT TO PUBLIC REPO
+# ============================================================================
+
+# Gold standard with evaluator names
+gold_standard.xlsx
+
+# Transcript files (may contain copyrighted content)
+transcripts/Transcripts.docx
+transcripts/history/
+transcripts/temp_videos/
+transcripts/nbc/
+
+# ============================================================================
+# Large Model Outputs - Too Large for Git
+# ============================================================================
+
+# Detailed model scores with full rationales (very large JSON files)
+model_scores_gold_standard/run_*/model_scores_detailed_*.json
+
+# Merged datasets with individual video scores (large CSV files)
+model_comparison_results/merged_human_model_scores_*.csv
+
+# ============================================================================
+# MLflow Tracking - Can be Regenerated
+# ============================================================================
+
+mlruns/
+
+# ============================================================================
+# Office Temporary Files
+# ============================================================================
+
+~$*.xlsx
+~$*.docx

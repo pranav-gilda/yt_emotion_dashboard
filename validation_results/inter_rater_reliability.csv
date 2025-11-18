@@ -1,0 +1,6 @@
+dimension,n_videos,evaluators,avg_pairwise_correlation,avg_agreement_within_1pt
+nuance,37,"EA,JPA,MMM",0.8787,94.41
+order_creativity,32,"EA,JPA,MMM",0.9349,100.0
+prevention_promotion,35,"EA,JPA,MMM",0.7273,93.33
+contempt_compassion,47,"EA,JPA,MMM",0.9396,100.0
+opinion_news,34,"EA,JPA,MMM",0.947,100.0

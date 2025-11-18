@@ -1,0 +1,33 @@
+{
+  "total_comparisons": 22,
+  "total_videos": 49,
+  "metrics_by_method": {},
+  "metrics_by_dimension": {},
+  "best_method_per_dimension": {
+    "opinion_news": {
+      "method": "gemini_no_roberta",
+      "pearson_r": 0.7159544398476396,
+      "mae": 0.703125
+    },
+    "nuance": {
+      "method": "gemini_no_roberta",
+      "pearson_r": 0.4486061898403893,
+      "mae": 1.1452380952380952
+    },
+    "order_creativity": {
+      "method": "gemini_no_roberta",
+      "pearson_r": 0.7510432821090627,
+      "mae": 0.9333333333333333
+    },
+    "prevention_promotion": {
+      "method": "gemini_no_roberta",
+      "pearson_r": 0.7728554956283707,
+      "mae": 0.7745098039215685
+    },
+    "compassion_contempt": {
+      "method": "gemini_no_roberta",
+      "pearson_r": 0.7219545725821194,
+      "mae": 0.6703703703703703
+    }
+  }
+}

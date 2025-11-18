@@ -1,5 +1,7 @@
 python-dotenv
 pandas
+seaborn
+python-docx
 youtube-transcript-api
 google-api-python-client
 pytube
@@ -24,3 +26,4 @@ google-generativeai
 torch
 
 mlflow
+requests_html

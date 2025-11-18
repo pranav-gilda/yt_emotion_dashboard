@@ -1,0 +1,32 @@
+{
+  "missing_data": [],
+  "inconsistencies": [],
+  "evaluators": [
+    "EA",
+    "JPA",
+    "MMM"
+  ],
+  "dimensions_found": [
+    "contempt_compassion",
+    "nuance",
+    "opinion_news",
+    "order_creativity",
+    "prevention_promotion"
+  ],
+  "sheets_processed": [
+    "1st Rating (5 labels)",
+    "2nd Rating (Nuance)",
+    "3rd Rating (Order)",
+    "4th Rating (Prevention)",
+    "5th Rating (Contempt)",
+    "6th Rating (opinion)"
+  ],
+  "total_videos": 52,
+  "timestamp": "2025-11-17T17:41:58.980447",
+  "notes": [
+    "Gold standard created by averaging scores across 3 evaluators (JPA, MMM, EA).",
+    "Each video was evaluated by multiple human raters.",
+    "Some dimensions may be missing for certain videos.",
+    "Scores are on a 1-5 scale for all dimensions."
+  ]
+}

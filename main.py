@@ -24,7 +24,7 @@ app.add_middleware(
 class TranscriptRequest(BaseModel):
     transcript: str
     model_provider: str = "openai"
-    prompt_version: str = "v2_streamlined" # New default for your experiment
+    prompt_version: str = "v3_final" # New default for your experiment
 
 class FeedbackPayload(BaseModel):
     model_type: str

@@ -1,0 +1,6 @@
+Dimension,N,Mean,Std,Min,Max,Median,Q1,Q3,Missing
+nuance,37,2.759,1.061,1.0,4.833,3.0,2.0,3.5,15
+order_creativity,32,2.812,1.378,1.0,5.0,3.0,1.875,4.0,20
+prevention_promotion,35,2.638,1.322,1.0,5.0,2.5,1.583,3.0,17
+contempt_compassion,47,2.894,0.935,1.0,5.0,3.0,2.0,3.0,5
+opinion_news,34,3.064,1.43,1.0,5.0,3.417,2.0,4.0,18
