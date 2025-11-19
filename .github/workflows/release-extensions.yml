@@ -1,0 +1,32 @@
+name: Package Extensions
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create ExtensionV2 package
+        run: |
+          cd extensionV2
+          zip -r ../extensionV2-${{ github.ref_name }}.zip .
+      
+      - name: Create ExtensionV3 package
+        run: |
+          cd extensionV3
+          zip -r ../extensionV3-${{ github.ref_name }}.zip .
+      
+      - name: Upload extensions to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            extensionV2-${{ github.ref_name }}.zip
+            extensionV3-${{ github.ref_name }}.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+
