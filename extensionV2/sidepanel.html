@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Emotion Analyzer</title>
+    <style>
+        :root { 
+            --bg-primary: #222; --bg-secondary: #2c2c2c; --text-primary: #f1f1f1; 
+            --text-secondary: #aaa; --accent-blue: #3f51b5; --accent-orange: #ff9800; 
+            --border-color: #444; --accent-yellow: #ffeb3b; --accent-purple: #9c27b0;
+        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 16px; background: var(--bg-primary); color: var(--text-primary); width: 350px; box-sizing: border-box; }
+        .view { background: var(--bg-secondary); border-radius: 12px; box-shadow: 0 2px 8px #000a; padding: 20px; display: none; }
+        #initial-view { display: block; }
+        h2 { font-size: 1.2em; font-weight: bold; margin-top: 0; margin-bottom: 20px; text-align: center; }
+        p { margin-top: 0; line-height: 1.5; color: var(--text-secondary); text-align: center; }
+        button { background: var(--accent-blue); color: #fff; border: none; border-radius: 6px; padding: 12px 18px; cursor: pointer; width: 100%; font-size: 1.1em; font-weight: bold; transition: background-color 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        #error { display: none; color: #ff7675; background: #2c1a1a; border-radius: 6px; padding: 8px; margin: 12px 0; font-weight: bold; text-align: center; }
+        .feedback-section { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;}
+        .thumb-buttons { display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; }
+        .thumb-btn { font-size: 24px; cursor: pointer; background: none; padding: 5px; border-radius: 50%; border: 2px solid transparent; }
+        .thumb-btn.selected { border-color: var(--accent-blue); }
+        .feedback-section textarea { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #555; background-color: #333; color: #fff; margin-bottom: 10px; box-sizing: border-box; }
+        
+        /* New Emotion Meter Styles */
+        .gauge-container { width: 260px; height: 180px; margin: 24px auto 0; position: relative; }
+        .gauge-container svg { width: 100%; height: 100%; overflow: visible; display: block; margin: 0 auto; }
+        .gauge-score-text { position: absolute; top: 68%; left: 50%; transform: translate(-50%, -50%); font-size: 2.6em; font-weight: bold; color: var(--text-primary); }
+        .gauge-status-text { position: absolute; top: 24%; left: 50%; transform: translate(-50%, -50%); font-size: 0.95em; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.5px; text-transform: uppercase; text-align: center; width: 100%;}
+        .gauge-spinner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 36px; height: 36px; border: 4px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+        .banner { background: #eee2; color: var(--text-primary); border-radius: 10px; padding: 10px 12px; margin-top: 14px; font-size: 0.95em; }
+        .warning { color: #ff7675; font-size: 0.9em; text-align: center; margin: 10px 0; }
+        .learn-more {
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #555;
+            border: none;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: fit-content;
+            margin: 16px auto;         /* consistent top+bottom spacing */
+            text-align: center;
+            transition: background 0.2s ease;
+            }
+
+            #details {
+            transition: all 0.3s ease;
+            overflow: hidden;          /* prevents jumpy spacing */
+            }
+
+
+        .score-label { display: flex; justify-content: space-between; margin-top: 0; margin-bottom: 8px; font-size: 1em; padding: 0 10px;}
+        .dimension-rationale { font-size: 0.9em; color: #c0c0c0; border-left: 2px solid var(--border-color); margin-top: 4px; padding-left: 8px; }
+        .top-emotions { margin-top: 16px; padding: 12px; background: #333; border-radius: 8px; }
+        .top-emotions h3 { margin: 0 0 10px 0; font-size: 0.9em; text-transform: uppercase; color: var(--text-secondary); }
+        .emotion-item { display: flex; justify-content: space-between; font-size: 0.95em; margin-bottom: 4px; }
+        .emotion-item .emotion-name { text-transform: capitalize; }
+        .emotion-item .emotion-score { font-weight: bold; }
+        
+        /* Other Dimensions List */
+        /* === Learn More / Secondary Analysis Styling === */
+
+/* --- Secondary Analysis ("Learn More") --- */
+
+.dimension-item {
+  background: transparent;
+  margin-top: 18px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 14px;
+}
+
+.dimension-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* Corner labels above the bar */
+.dimension-label-left,
+.dimension-label-right {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.score-bar-container {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #444;
+  overflow: visible; /* important: allow tick & text to show below */
+}
+
+.score-bar {
+  position: absolute;
+  top: 0;
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.3s ease, left 0.3s ease;
+  z-index: 1;
+}
+
+.score-zero-tick {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 2px;
+  height: 12px;
+  background: #fff;
+  transform: translateX(-50%);
+  z-index: 2;
+  border-radius: 1px;
+}
+
+.score-score-tick {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 12px;
+  background: #111;
+  transform: translateX(-50%);
+  z-index: 3;
+  border-radius: 1px;
+}
+
+/* fix: ensure score text shows below bar */
+.score-value-label {
+  position: absolute;
+  top: 16px;               /* push slightly further below */
+  font-size: 0.85em;
+  color: #e0e0e0;          /* brighter for visibility */
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 4;
+}
+
+.bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: #aaa;
+  margin-top: 8px;
+}
+
+/* rationale text */
+.dimension-rationale {
+  font-size: 0.9em;
+  color: #ccc;
+  border-left: 2px solid #555;
+  margin-top: 8px;
+  padding-left: 10px;
+  line-height: 1.4;
+}
+
+/* subtle info icon */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  font-size: 10px;
+  background: #ccc;
+  color: #222;
+  border-radius: 50%;
+  font-weight: bold;
+}
+
+#gauge-score {
+  display: none;
+}
+
+    </style>
+</head>
+<body>
+
+    <!-- View 1: Loading/Calculating View (auto-start) -->
+    <div id="initial-view" class="view">
+        <h2>Emotion Meter</h2>
+        <div class="gauge-container">
+            <svg id="calc-gauge" width="240" height="200" viewBox="0 0 260 200" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <linearGradient id="calcGaugeGradient">
+                        <stop offset="0%" stop-color="#ff9800"/>
+                        <stop offset="50%" stop-color="#FFFFFF"/>
+                        <stop offset="100%" stop-color="#5E35B1"/>
+                    </linearGradient>
+                </defs>
+                <g id="calcGaugeGroup" transform="translate(0,36)">
+                    <!-- 270-degree arc from 225deg to -45deg -->
+                    <path d="M50,140 A110,110 0 1,1 210,140" fill="none" stroke="#444" stroke-width="18" stroke-linecap="round"/>
+                    <path id="calc-gaugeArc" d="M50,140 A110,110 0 1,1 210,140" fill="none" stroke="url(#calcGaugeGradient)" stroke-width="16" stroke-linecap="round"/>
+                    <line id="calc-gaugeNeedle" x1="130" y1="140" x2="130" y2="80" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+                    <circle id="calc-gaugeHub" cx="130" cy="140" r="8" fill="#23272f" stroke="#888" stroke-width="3"/>
+                </g>
+            </svg>
+            <div id="gauge-status" class="gauge-status-text">Calculating</div>
+            <div id="gauge-spinner" class="gauge-spinner"></div>
+        </div>
+        <div class="score-label">
+            <span>Contempt</span>
+            <span>Respect</span>
+        </div>
+        <div id="loading-banner" class="banner">Analyzing the video...</div>
+        <div id="error"></div>
+    </div>
+
+    <!-- View 2: Analysis Results View -->
+    <div id="results-view" class="view">
+    <h2>Emotion Meter</h2>
+
+    <div class="gauge-container">
+        <svg id="result-gauge" viewBox="0 0 260 200" preserveAspectRatio="xMidYMid meet">
+        <defs>
+            <linearGradient id="resultGaugeGradient">
+            <stop offset="0%" stop-color="#ff9800"/>
+            <stop offset="50%" stop-color="#FFFFFF"/>
+            <stop offset="100%" stop-color="#5E35B1"/>
+            </linearGradient>
+        </defs>
+        <g id="resultGaugeGroup" transform="translate(0,36)">
+            <path d="M50,140 A110,110 0 1,1 210,140" fill="none" stroke="#444" stroke-width="18" stroke-linecap="round"/>
+            <path id="result-gaugeArc" d="M50,140 A110,110 0 1,1 210,140" fill="none" stroke="url(#resultGaugeGradient)" stroke-width="16" stroke-linecap="round"/>
+            <line id="result-gaugeNeedle" x1="130" y1="60" x2="130" y2="150" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+            <circle id="result-gaugeHub" cx="130" cy="60" r="8" fill="#23272f" stroke="#888" stroke-width="3"/>
+        </g>
+        </svg>
+        <div id="gauge-score" class="gauge-score-text">--</div>
+        <div id="gauge-status-result" class="gauge-status-text"></div>
+    </div>
+
+    <div class="score-label">
+        <span>Contempt</span>
+        <span>Respect</span>
+    </div>
+
+    <div id="warning-line" class="warning" style="display:none;"></div>
+    <p id="llm-compassion-rationale" class="dimension-rationale"></p>
+
+    <!-- ✅ ANALYSIS SECTION (new structure) -->
+    <div class="analysis-section">
+        <div id="details" style="display:block;">
+        <h3 class="metrics-heading">Other Metrics</h3>
+        <div class="dimension-list" id="llm-dimension-list"></div>
+        </div>
+        <button id="learn-more" class="learn-more">Learn More</button>
+    </div>
+
+    <!-- FEEDBACK -->
+    <div class="feedback-section">
+        <h3>Was this analysis helpful?</h3>
+        <div class="thumb-buttons">
+        <button class="thumb-btn" id="llm-thumb-up">👍</button>
+        <button class="thumb-btn" id="llm-thumb-down">👎</button>
+        </div>
+        <textarea id="llm-feedback-comment" rows="3" placeholder="Any other comments?"></textarea>
+        <button id="llm-feedback-submit" style="background-color: #555;">Submit Feedback</button>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>
