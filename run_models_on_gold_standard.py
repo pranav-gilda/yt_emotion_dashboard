@@ -18,6 +18,7 @@ import os
 import time
 import re
 import argparse
+import glob
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -49,14 +50,56 @@ TRANSCRIPT_CACHE = {}
 # TRANSCRIPT FETCHING
 # ============================================================================
 
+def get_transcript_from_previous_run_json(video_id: str, youtube_id: Optional[str]) -> Optional[str]:
+    """
+    Extract transcript from previous successful run JSON files.
+    This is a fallback if transcripts/history/ doesn't have the file.
+    """
+    candidate_ids = []
+    if youtube_id and pd.notna(youtube_id):
+        candidate_ids.append(str(youtube_id).strip())
+    if video_id:
+        candidate_ids.append(str(video_id).strip())
+        # Also try without leading dash/underscore
+        if video_id.startswith('-') or video_id.startswith('_'):
+            candidate_ids.append(video_id[1:])
+    
+    # Check run_1 and run_2 JSON files
+    for run_dir in ["run_1", "run_2"]:
+        json_files = glob.glob(f"model_scores_gold_standard/{run_dir}/model_scores_detailed_*.json")
+        for json_file in json_files:
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    results = json.load(f)
+                for video_result in results:
+                    vid = video_result.get('video_id')
+                    yid = video_result.get('youtube_id')
+                    
+                    # Check if this video matches
+                    if vid in candidate_ids or (yid and str(yid).strip() in candidate_ids):
+                        # Extract transcript from roberta_valence
+                        methods = video_result.get('methods', {})
+                        roberta_valence = methods.get('roberta_valence', {})
+                        raw_result = roberta_valence.get('raw_result', {})
+                        if 'transcript' in raw_result:
+                            transcript = raw_result['transcript']
+                            if len(transcript) > 50:
+                                logging.info(f"  Found transcript in previous run JSON: {json_file}")
+                                return transcript
+            except Exception as e:
+                logging.debug(f"  Error reading JSON file {json_file}: {e}")
+                continue
+    return None
+
 def get_transcript_for_video(video_id: str, youtube_id: Optional[str], 
                               docx_transcripts: Dict[str, str]) -> Optional[str]:
     """
     Get transcript for a video, trying multiple sources:
-    1. From transcripts/history/{youtube_id}.txt (fastest, skip yt-dlp)
+    1. From transcripts/history/{youtube_id}.txt (fastest, from extracted JSON)
     2. From transcripts/history/{video_id}.txt (if video_id is YouTube ID)
-    3. From Transcripts.docx (matched by normalized title or video_id)
-    4. Skip yt-dlp to avoid hitting YouTube servers
+    3. From previous run JSON files (extract from roberta_valence raw_result)
+    4. Skip .docx (not reliable)
+    5. Skip yt-dlp to avoid hitting YouTube servers
     """
     # Get candidate IDs to try (youtube_id and video_id, both as-is and cleaned)
     candidate_ids = []
@@ -91,58 +134,37 @@ def get_transcript_for_video(video_id: str, youtube_id: Optional[str],
         logging.info(f"  Using cached transcript for {video_id[:30]}")
         return TRANSCRIPT_CACHE[cache_key]
     
-    # Try transcripts/history folder with all candidate IDs
+    # Try transcripts/history and temp_videos folders with all candidate IDs
     for candidate_id in candidate_ids:
-        transcript_file = os.path.join("transcripts", "history", f"{candidate_id}.txt")
-        if os.path.exists(transcript_file):
-            logging.info(f"  Found transcript file: {transcript_file}")
-            try:
-                with open(transcript_file, 'r', encoding='utf-8') as f:
-                    transcript = f.read().strip()
-                if len(transcript) > 50:  # Only return if substantial content
-                    TRANSCRIPT_CACHE[cache_key] = transcript
-                    return transcript
-            except Exception as e:
-                logging.warning(f"  Error reading transcript file: {e}")
+        for folder in ["history", "temp_videos"]:
+            transcript_file = os.path.join("transcripts", folder, f"{candidate_id}.txt")
+            if os.path.exists(transcript_file):
+                logging.info(f"  Found transcript file: {transcript_file}")
+                try:
+                    with open(transcript_file, 'r', encoding='utf-8') as f:
+                        transcript = f.read().strip()
+                    if len(transcript) > 50:  # Only return if substantial content
+                        TRANSCRIPT_CACHE[cache_key] = transcript
+                        return transcript
+                except Exception as e:
+                    logging.warning(f"  Error reading transcript file: {e}")
     
-    # Try .docx with all candidate IDs (both direct and normalized)
-    for candidate_id in candidate_ids:
-        # Try direct match first (in case .docx has YouTube ID as key)
-        if candidate_id in docx_transcripts:
-            logging.info(f"  Found transcript in .docx (direct match) for {candidate_id[:30]}")
-            transcript = docx_transcripts[candidate_id]
-            if len(transcript) > 50:
-                TRANSCRIPT_CACHE[cache_key] = transcript
-                return transcript
-        
-        # Try normalized match
-        normalized_candidate = normalize_title(candidate_id)
-        if normalized_candidate in docx_transcripts:
-            logging.info(f"  Found transcript in .docx (normalized) for {candidate_id[:30]}")
-            transcript = docx_transcripts[normalized_candidate]
-            if len(transcript) > 50:
-                TRANSCRIPT_CACHE[cache_key] = transcript
-                return transcript
+    # Try previous run JSON files (extract from roberta_valence)
+    transcript = get_transcript_from_previous_run_json(video_id, youtube_id)
+    if transcript:
+        TRANSCRIPT_CACHE[cache_key] = transcript
+        return transcript
     
-    # Also try with original video_id (in case it's a title, not an ID)
-    if video_id not in candidate_ids:
-        # Try direct match
-        if video_id in docx_transcripts:
-            logging.info(f"  Found transcript in .docx (direct video_id) for {video_id[:30]}")
-            transcript = docx_transcripts[video_id]
-            if len(transcript) > 50:
-                TRANSCRIPT_CACHE[cache_key] = transcript
-                return transcript
-        
-        # Try normalized
-        normalized_video_id = normalize_title(video_id)
-        if normalized_video_id not in [normalize_title(cid) for cid in candidate_ids]:
-            if normalized_video_id in docx_transcripts:
-                logging.info(f"  Found transcript in .docx (normalized video_id) for {video_id[:30]}")
-                transcript = docx_transcripts[normalized_video_id]
-                if len(transcript) > 50:
-                    TRANSCRIPT_CACHE[cache_key] = transcript
-                    return transcript
+    # Skip .docx - not reliable, transcripts are in JSON files
+    # Only try .docx as absolute last resort (commented out for now)
+    # If needed, uncomment below:
+    # for candidate_id in candidate_ids:
+    #     if candidate_id in docx_transcripts:
+    #         logging.info(f"  Found transcript in .docx (direct match) for {candidate_id[:30]}")
+    #         transcript = docx_transcripts[candidate_id]
+    #         if len(transcript) > 50:
+    #             TRANSCRIPT_CACHE[cache_key] = transcript
+    #             return transcript
     
     logging.warning(f"  Could not get transcript for {video_id} (youtube_id: {youtube_id}) (skipping yt-dlp)")
     return None
@@ -447,18 +469,31 @@ def run_all_models_on_gold_standard(run_number: int = 1):
     # Load gold standard
     logging.info(f"\nLoading gold standard from: {GOLD_STANDARD_PATH}")
     gold_df = pd.read_csv(GOLD_STANDARD_PATH)
-    logging.info(f"Loaded {len(gold_df)} videos from gold standard")
+    
+    # Filter out invalid entries (Excel errors like #NAME?)
+    initial_count = len(gold_df)
+    gold_df = gold_df[gold_df['video_id'].astype(str).str.strip() != '#NAME?']
+    gold_df = gold_df[gold_df['video_id'].notna()]
+    gold_df = gold_df[gold_df['video_id'].astype(str).str.len() > 0]
+    
+    filtered_count = initial_count - len(gold_df)
+    if filtered_count > 0:
+        logging.info(f"Filtered out {filtered_count} invalid entries (e.g., #NAME?)")
+    
+    logging.info(f"Loaded {len(gold_df)} valid videos from gold standard")
     
     if HAS_MLFLOW:
         mlflow.log_param("total_videos", len(gold_df))
+        mlflow.log_param("filtered_invalid", filtered_count)
     
-    # Load transcripts from .docx
-    logging.info("\nLoading transcripts from Transcripts.docx...")
-    docx_transcripts = parse_transcripts_docx()
-    logging.info(f"Found {len(docx_transcripts)} transcripts in .docx")
+    # Skip .docx loading - transcripts are in transcripts/history/ and previous run JSON files
+    # docx_transcripts = {}  # Empty dict since we're not using .docx
+    docx_transcripts = {}  # Not using .docx anymore - transcripts from JSON files
+    logging.info("\nSkipping .docx loading - using transcripts from history/ and previous run JSON files")
     
     if HAS_MLFLOW:
-        mlflow.log_param("docx_transcripts_count", len(docx_transcripts))
+        mlflow.log_param("docx_transcripts_count", 0)
+        mlflow.log_param("transcript_source", "history_folder_and_json")
     
     # Process each video
     all_results = []

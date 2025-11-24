@@ -176,7 +176,9 @@ This will:
 - 49 videos with complete model scores
 - 22 model comparisons (4 LLM × 5 dimensions + 2 RoBERTa × 1 dimension)
 
-For detailed results, see: **`COMPREHENSIVE_RESULTS_REPORT.md`**
+For detailed results, see:
+- **`COMPREHENSIVE_RESULTS_REPORT.md`** - Complete detailed analysis
+- **`RESULTS.md`** - Quick results summary
 
 ## 🎓 Research Use Cases
 
@@ -196,10 +198,22 @@ For detailed results, see: **`COMPREHENSIVE_RESULTS_REPORT.md`**
 
 ## 🔗 Related Documentation
 
-- **`COMPREHENSIVE_RESULTS_REPORT.md`** - ⭐ **Start here for complete results and insights**
-- **`PROJECT_SUMMARY.md`** - Project overview and current status
-- **`IMPLEMENTATION_NOTES.md`** - Lessons learned and technical improvements
+### Main Reports
+- **`COMPREHENSIVE_RESULTS_REPORT.md`** - ⭐ **Complete detailed results and analysis**
+- **`RESULTS.md`** - ⭐ **Quick results summary and key findings**
+
+### Key Distinctions
+- **`DATASET_ANALYSIS_COMPARISON.md`** - ⭐ **Understand the difference between transcript corpus analysis vs. gold standard validation**
+
+### Technical Documentation
+- **`IMPLEMENTATION_NOTES.md`** - Technical details and lessons learned
 - **`MLFLOW_TRACKING_GUIDE.md`** - MLflow experiment tracking guide
+- **`ANALYSIS_MECHANISMS_EXPLAINED.md`** - How each model works
+
+### Historical Context
+- **`MODEL_COMPARISON_SUMMARY.md`** - Historical summary (previous analysis)
+
+### Additional Resources
 - See individual script docstrings for detailed function documentation
 - Check `validation_results/data_quality_notes.json` for data quality issues
 - Review `model_comparison_results/` for detailed analysis outputs

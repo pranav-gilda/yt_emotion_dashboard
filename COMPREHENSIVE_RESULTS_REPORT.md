@@ -119,6 +119,8 @@ This report presents a comprehensive validation of 6 AI models against human-cod
 
 **Relevance:** This analysis informed the development of the current gold standard validation framework and prompted the inclusion of Gemini models.
 
+> **📖 For a detailed comparison between the transcript corpus analysis and gold standard validation, see: [`DATASET_ANALYSIS_COMPARISON.md`](DATASET_ANALYSIS_COMPARISON.md)**
+
 ---
 
 ## 🤖 Models Evaluated

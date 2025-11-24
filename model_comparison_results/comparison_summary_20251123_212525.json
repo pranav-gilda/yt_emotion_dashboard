@@ -1,0 +1,33 @@
+{
+  "total_comparisons": 32,
+  "total_videos": 48,
+  "metrics_by_method": {},
+  "metrics_by_dimension": {},
+  "best_method_per_dimension": {
+    "opinion_news": {
+      "method": "gemini_flagship",
+      "pearson_r": 0.7653009029911334,
+      "mae": 0.7580645161290323
+    },
+    "nuance": {
+      "method": "gemini_flagship",
+      "pearson_r": 0.7311155397910672,
+      "mae": 0.5808823529411765
+    },
+    "order_creativity": {
+      "method": "gemini_flagship",
+      "pearson_r": 0.8191251336370167,
+      "mae": 0.6551724137931034
+    },
+    "prevention_promotion": {
+      "method": "gemini_flagship",
+      "pearson_r": 0.804983957772979,
+      "mae": 0.7222222222121212
+    },
+    "compassion_contempt": {
+      "method": "gemini_flagship",
+      "pearson_r": 0.7498536478183472,
+      "mae": 0.5719696969545454
+    }
+  }
+}

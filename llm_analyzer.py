@@ -5,7 +5,7 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 # Import the RoBERTa function from your models file
@@ -13,8 +13,8 @@ from models import run_go_emotions
 
 load_dotenv()
 # --- API Key Configuration ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
-genai.configure(api_key=os.getenv("GEMINI_API_KEY")) # type: ignore
+openai.api_key = os.getenv("OPENAI_API_KEY", "")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY", "")) # type: ignore
 
 # --- Original Prompt V1 ---
 SYSTEM_PROMPT_V1 = """
@@ -193,30 +193,33 @@ PROMPTS = {
 }
 
 # --- Internal Helper for OpenAI ---
-def _analyze_with_openai(system_prompt: str, user_prompt: str) -> Dict[str, Any]:
+def _analyze_with_openai(system_prompt: str, user_prompt: str, model_name: str = "gpt-4o") -> Dict[str, Any]:
     """Internal function to call the OpenAI API."""
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY not set.")
     
     completion = openai.chat.completions.create(
-        model="gpt-4o",
+        model=model_name,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
         response_format={"type": "json_object"}
     )
-    return json.loads(completion.choices[0].message.content)
+    content = completion.choices[0].message.content
+    if not content:
+        raise ValueError("OpenAI API returned empty response.")
+    return json.loads(content)
 
 # --- Internal Helper for Gemini ---
-def _analyze_with_gemini(full_prompt: str) -> Dict[str, Any]:
+def _analyze_with_gemini(full_prompt: str, model_name: str = "models/gemini-2.5-flash") -> Dict[str, Any]:
     """Internal function to call the Gemini API."""
     # Check if API key is configured (it's set via genai.configure() in module init)
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set in environment variables.")
     
-    model = genai.GenerativeModel('models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name)  # type: ignore
     
     # Gemini uses a single prompt (combine system + user)
     # Add explicit JSON instruction
@@ -237,11 +240,17 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any text before or after
     return json.loads(response_text)
 
 # --- Main Router Function (Updated to handle V3) ---
-def analyze_transcript_with_llm(transcript: str, model_provider: str, prompt_version: str) -> Dict[str, Any]:
+def analyze_transcript_with_llm(transcript: str, model_provider: str, prompt_version: str, model_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Main function to route the analysis to the specified model and prompt version.
+    
+    Args:
+        transcript: The transcript text to analyze
+        model_provider: "openai" or "gemini"
+        prompt_version: One of the PROMPTS keys (e.g., "v5_all_dimensions")
+        model_name: Optional model name override (e.g., "gpt-4o", "models/gemini-3-pro-preview")
     """
-    logging.info(f"Routing request for provider: {model_provider.upper()}, prompt: {prompt_version.upper()}")
+    logging.info(f"Routing request for provider: {model_provider.upper()}, prompt: {prompt_version.upper()}, model: {model_name or 'default'}")
     
     prompt_to_use = PROMPTS.get(prompt_version)
     if not prompt_to_use:
@@ -271,12 +280,14 @@ def analyze_transcript_with_llm(transcript: str, model_provider: str, prompt_ver
 """
             if model_provider == "openai":
                 logging.info(f"{prompt_version.upper()} Workflow: Sending combined prompt to OpenAI...")
-                return _analyze_with_openai(prompt_to_use, user_prompt_with_context)
+                openai_model = model_name if model_name else "gpt-4o"
+                return _analyze_with_openai(prompt_to_use, user_prompt_with_context, model_name=openai_model)
             elif model_provider == "gemini":
                 # Combine system and user prompts for Gemini
                 combined_prompt = f"{prompt_to_use}\n\n{user_prompt_with_context}"
                 logging.info(f"{prompt_version.upper()} Workflow: Sending combined prompt to Gemini...")
-                return _analyze_with_gemini(combined_prompt)
+                gemini_model = model_name if model_name else "models/gemini-2.5-flash"
+                return _analyze_with_gemini(combined_prompt, model_name=gemini_model)
             else:
                 raise ValueError(f"Provider '{model_provider}' not supported for context-aware prompts.")
 
@@ -285,11 +296,13 @@ def analyze_transcript_with_llm(transcript: str, model_provider: str, prompt_ver
             user_prompt = f"**Transcript to Analyze:**\n```\n{transcript}\n```"
             
             if model_provider == "openai":
-                return _analyze_with_openai(prompt_to_use, user_prompt)
+                openai_model = model_name if model_name else "gpt-4o"
+                return _analyze_with_openai(prompt_to_use, user_prompt, model_name=openai_model)
             elif model_provider == "gemini":
                 # Combine system and user prompts for Gemini
                 combined_prompt = f"{prompt_to_use}\n\n{user_prompt}"
-                return _analyze_with_gemini(combined_prompt)
+                gemini_model = model_name if model_name else "models/gemini-2.5-flash"
+                return _analyze_with_gemini(combined_prompt, model_name=gemini_model)
             else:
                 raise ValueError(f"Provider '{model_provider}' not configured. Use 'openai' or 'gemini'.")
         

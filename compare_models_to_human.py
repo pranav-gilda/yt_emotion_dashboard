@@ -45,7 +45,9 @@ LLM_METHODS = [
     'openai_no_roberta',
     'openai_with_roberta',
     'gemini_no_roberta',
-    'gemini_with_roberta'
+    'gemini_with_roberta',
+    'openai_flagship',  # GPT-5.1 or other flagship OpenAI model
+    'gemini_flagship'   # Gemini 3 Pro Preview or other flagship Gemini model
 ]
 
 # Methods that only score compassion_contempt
@@ -58,23 +60,80 @@ ROBERTA_METHODS = [
 # LOAD DATA
 # ============================================================================
 
-def load_latest_model_scores() -> pd.DataFrame:
-    """Load the most recent model scores CSV."""
+def load_latest_model_scores(include_flagship: bool = True) -> pd.DataFrame:
+    """Load the most recent model scores CSV, optionally including flagship results.
+    
+    Searches in subdirectories: run_1/, run_2/, and flagship_run/
+    
+    Args:
+        include_flagship: If True, also load flagship_run scores and merge.
+    """
     if not os.path.exists(MODEL_SCORES_DIR):
         raise FileNotFoundError(f"Model scores directory not found: {MODEL_SCORES_DIR}")
     
-    csv_files = [f for f in os.listdir(MODEL_SCORES_DIR) if f.startswith('model_scores_') and f.endswith('.csv')]
-    if not csv_files:
-        raise FileNotFoundError(f"No model scores CSV found in {MODEL_SCORES_DIR}")
+    all_dfs = []
+    all_files = []
     
-    # Get most recent file
-    csv_files.sort(reverse=True)
-    latest_file = os.path.join(MODEL_SCORES_DIR, csv_files[0])
+    # Search in subdirectories (run_1, run_2, etc.)
+    for subdir in os.listdir(MODEL_SCORES_DIR):
+        subdir_path = os.path.join(MODEL_SCORES_DIR, subdir)
+        if os.path.isdir(subdir_path):
+            # Check for regular model scores (in run_1, run_2, etc.)
+            if subdir.startswith('run_'):
+                csv_files = [f for f in os.listdir(subdir_path) if f.startswith('model_scores_') and f.endswith('.csv')]
+                for csv_file in csv_files:
+                    file_path = os.path.join(subdir_path, csv_file)
+                    if os.path.getsize(file_path) > 0:  # Skip empty files
+                        all_files.append((file_path, os.path.getmtime(file_path)))
+            
+            # Check for flagship scores if requested (only latest)
+            if include_flagship and subdir == "flagship_run":
+                csv_files = [f for f in os.listdir(subdir_path) if f.startswith('flagship_scores_') and f.endswith('.csv')]
+                # Only get the most recent flagship file
+                if csv_files:
+                    csv_files.sort(reverse=True)  # Most recent first
+                    latest_flagship = csv_files[0]
+                    file_path = os.path.join(subdir_path, latest_flagship)
+                    if os.path.getsize(file_path) > 0:  # Skip empty files
+                        all_files.append((file_path, os.path.getmtime(file_path)))
     
-    logging.info(f"Loading model scores from: {latest_file}")
-    df = pd.read_csv(latest_file)
+    if not all_files:
+        raise FileNotFoundError(f"No model scores CSV found in {MODEL_SCORES_DIR} or subdirectories")
+    
+    # Sort by modification time (most recent first)
+    all_files.sort(key=lambda x: x[1], reverse=True)
+    
+    # Load all files and merge (skip empty files)
+    for file_path, _ in all_files:
+        try:
+            # Check file size first
+            if os.path.getsize(file_path) == 0:
+                logging.warning(f"  Skipping empty file: {file_path}")
+                continue
+            logging.info(f"Loading model scores from: {file_path}")
+            df_temp = pd.read_csv(file_path)
+            if len(df_temp) == 0 or df_temp.empty:
+                logging.warning(f"  Skipping empty DataFrame from: {file_path}")
+                continue
+            all_dfs.append(df_temp)
+        except (pd.errors.EmptyDataError, pd.errors.ParserError, Exception) as e:
+            logging.warning(f"  Skipping file {file_path} due to error: {e}")
+            continue
+    
+    # Merge all DataFrames on video_id
+    if len(all_dfs) == 1:
+        df = all_dfs[0]
+    else:
+        df = all_dfs[0]
+        for other_df in all_dfs[1:]:
+            # Merge on video_id, keeping all columns
+            df = df.merge(other_df, on='video_id', how='outer', suffixes=('', '_dup'))
+            # Remove duplicate columns (keep first occurrence)
+            dup_cols = [c for c in df.columns if c.endswith('_dup')]
+            if dup_cols:
+                df = df.drop(columns=dup_cols)
+    
     logging.info(f"  Loaded {len(df)} videos with model scores")
-    
     return df
 
 def load_human_scores() -> pd.DataFrame:

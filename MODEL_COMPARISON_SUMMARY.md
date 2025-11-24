@@ -1,8 +1,10 @@
-# Model Comparison Framework - Summary
+# Model Comparison Framework - Historical Summary
 
-> **⚠️ NOTE:** This document describes the **previous transcript corpus analysis** (Nov 7, 2024) without human gold standard.  
-> For the **current gold standard validation results** (Nov 17, 2024), see:  
-> **⭐ [`COMPREHENSIVE_RESULTS_REPORT.md`](COMPREHENSIVE_RESULTS_REPORT.md)** - Complete results with all 5 dimensions, Gemini vs OpenAI comparison, and human validation.
+> **⚠️ HISTORICAL DOCUMENT:** This document describes the **previous transcript corpus analysis** (Nov 7, 2024) without human gold standard validation.  
+> 
+> **For current results, see:**
+> - **⭐ [`COMPREHENSIVE_RESULTS_REPORT.md`](COMPREHENSIVE_RESULTS_REPORT.md)** - Complete results with all 5 dimensions, Gemini vs OpenAI comparison, and human validation
+> - **⭐ [`RESULTS.md`](RESULTS.md)** - Quick results summary
 
 ---
 

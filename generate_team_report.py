@@ -33,8 +33,10 @@ DIMENSION_DISPLAY_NAMES = {
 METHOD_DISPLAY_NAMES = {
     'openai_no_roberta': 'OpenAI GPT-4o (No Context)',
     'openai_with_roberta': 'OpenAI GPT-4o (With RoBERTa)',
+    'openai_flagship': 'OpenAI GPT-5.1 (Flagship)',
     'gemini_no_roberta': 'Google Gemini 2.5 Flash (No Context)',
     'gemini_with_roberta': 'Google Gemini 2.5 Flash (With RoBERTa)',
+    'gemini_flagship': 'Google Gemini 3 Pro Preview (Flagship) ⭐',
     'roberta_plain': 'RoBERTa Plain (Emotion-based)',
     'roberta_valence': 'RoBERTa Valence (Weighted)'
 }
