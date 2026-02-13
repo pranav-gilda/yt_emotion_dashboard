@@ -23,7 +23,7 @@ app.add_middleware(
 # MODIFIED: TranscriptRequest now defaults to the new "v2_streamlined" prompt
 class TranscriptRequest(BaseModel):
     transcript: str
-    model_provider: str = "openai"
+    model_provider: str = "gemini"
     prompt_version: str = "v3_final" # New default for your experiment
 
 class FeedbackPayload(BaseModel):
